@@ -1,0 +1,39 @@
+on:
+  pull_request:
+  push:
+    branches: master
+
+name: Continuous integration
+
+jobs:
+  analyze:
+    name: Code Analysis
+    uses: dusk-network/.github/.github/workflows/code-analysis.yml@main
+    with:
+      clippy_default: false
+      clippy_args: --all-features
+
+  dusk_analyzer:
+    name: Dusk Analyzer
+    uses: dusk-network/.github/.github/workflows/dusk-analysis.yml@main
+
+  build_docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc --no-deps
+      - run: cargo doc --no-deps --no-default-features --features bls-backend-blst
+
+  test_dusk_backend:
+    name: Test dusk backend
+    uses: dusk-network/.github/.github/workflows/run-tests.yml@main
+
+  test_blst_backend:
+    name: Test blst backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --no-default-features --features bls-backend-blst
