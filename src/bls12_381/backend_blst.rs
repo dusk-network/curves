@@ -30,13 +30,6 @@ pub use dusk_bls12_381::{BlsScalar, GENERATOR, ROOT_OF_UNITY, TWO_ADACITY};
 /// Scalar type for this backend — same as `BlsScalar`.
 pub type Scalar = BlsScalar;
 
-// ── private dusk imports (tests only) ────────────────────────────────────────
-
-#[cfg(test)]
-use dusk_bls12_381::G1Affine as DuskG1Affine;
-#[cfg(test)]
-use dusk_bls12_381::G2Affine as DuskG2Affine;
-
 // ── public type aliases ──────────────────────────────────────────────────────
 //
 // These are the names that downstream crates import.  They transparently switch
@@ -765,6 +758,8 @@ pub fn pairing_product_is_identity(terms: &[(&G1Affine, &G2Affine)]) -> bool {
 mod tests {
     use super::*;
     use alloc::vec;
+    use dusk_bls12_381::G1Affine as DuskG1Affine;
+    use dusk_bls12_381::G2Affine as DuskG2Affine;
     use dusk_bytes::Serializable;
 
     #[test]
