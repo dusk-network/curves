@@ -10,6 +10,7 @@
 //! select the underlying implementation. The public API is identical
 //! regardless of the backend.
 
+#![no_std]
 #![deny(missing_docs)]
 
 extern crate alloc;
