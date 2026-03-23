@@ -78,12 +78,13 @@ impl BlstG1Affine {
         out
     }
 
-    /// Deserialize from uncompressed form **without** group-membership checks.
+    /// Deserialize from uncompressed form (96 bytes) **without** group-membership
+    /// checks.
     ///
-    /// # Safety
-    /// The caller must ensure the bytes represent a valid on-curve point.
+    /// # Panics
+    /// Panics if `bytes.len() != RAW_SIZE`.
     #[must_use]
-    pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
+    pub fn from_slice_unchecked(bytes: &[u8; Self::RAW_SIZE]) -> Self {
         let mut out = ::blst::blst_p1_affine::default();
         let _ = unsafe { ::blst::blst_p1_deserialize(&raw mut out, bytes.as_ptr()) };
         Self(out)
@@ -675,7 +676,7 @@ impl MillerLoopResult {
 #[must_use]
 pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult {
     if terms.is_empty() {
-        return MillerLoopResult(::blst::blst_fp12::default());
+        return MillerLoopResult(unsafe { *::blst::blst_fp12_one() });
     }
     let ps: Vec<::blst::blst_p1_affine> = terms.iter().map(|(g1, _)| g1.0).collect();
     let qs: Vec<::blst::blst_p2_affine> = terms.iter().map(|(_, g2)| g2.0).collect();
@@ -747,7 +748,7 @@ pub fn pairing_product_is_identity(terms: &[(&G1Affine, &G2Affine)]) -> bool {
 
     let fp12 = ::blst::blst_fp12::miller_loop_n(qs.as_slice(), ps.as_slice());
     let gt = fp12.final_exp();
-    ::blst::blst_fp12::finalverify(&gt, &::blst::blst_fp12::default())
+    gt == unsafe { *::blst::blst_fp12_one() }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -782,7 +783,7 @@ mod tests {
     fn g1_affine_raw_roundtrip() {
         let g = G1Affine::generator();
         let raw = g.to_raw_bytes();
-        let decoded = unsafe { G1Affine::from_slice_unchecked(&raw) };
+        let decoded = G1Affine::from_slice_unchecked(&raw);
         assert_eq!(g, decoded);
     }
 
@@ -828,7 +829,7 @@ mod tests {
     fn scalar_mul_g1_identity_is_identity() {
         let id = G1Affine::identity();
         let result = id * BlsScalar::one();
-        assert_eq!(G1Affine::from(result), G1Affine::identity(),);
+        assert_eq!(G1Affine::from(result), G1Affine::identity());
     }
 
     #[test]
