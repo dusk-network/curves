@@ -15,6 +15,12 @@
 #[cfg(all(feature = "bls-backend-dusk", feature = "bls-backend-blst"))]
 compile_error!("features 'bls-backend-dusk' and 'bls-backend-blst' are mutually exclusive");
 
+#[cfg(all(feature = "bls-backend-blst", feature = "rkyv-impl"))]
+compile_error!(
+    "feature 'rkyv-impl' is not yet supported with 'bls-backend-blst'; \
+     use the default 'bls-backend-dusk' backend for rkyv serialization"
+);
+
 #[cfg(feature = "bls-backend-blst")]
 mod backend_blst;
 #[cfg(feature = "bls-backend-blst")]

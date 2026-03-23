@@ -11,7 +11,7 @@ jobs:
     uses: dusk-network/.github/.github/workflows/code-analysis.yml@main
     with:
       clippy_default: false
-      clippy_args: --features bls-backend-blst,rkyv-impl,parallel --no-default-features
+      clippy_args: --features bls-backend-blst,parallel --no-default-features
 
   dusk_analyzer:
     name: Dusk Analyzer
