@@ -15,6 +15,11 @@
 #[cfg(all(feature = "bls-backend-dusk", feature = "bls-backend-blst"))]
 compile_error!("features 'bls-backend-dusk' and 'bls-backend-blst' are mutually exclusive");
 
+#[cfg(not(any(feature = "bls-backend-dusk", feature = "bls-backend-blst")))]
+compile_error!(
+    "no backend selected: enable either 'bls-backend-dusk' (default) or 'bls-backend-blst'"
+);
+
 #[cfg(all(feature = "bls-backend-blst", feature = "rkyv-impl"))]
 compile_error!(
     "feature 'rkyv-impl' is not yet supported with 'bls-backend-blst'; \
@@ -26,9 +31,9 @@ mod backend_blst;
 #[cfg(feature = "bls-backend-blst")]
 use backend_blst as backend;
 
-#[cfg(not(feature = "bls-backend-blst"))]
+#[cfg(feature = "bls-backend-dusk")]
 mod backend_dusk;
-#[cfg(not(feature = "bls-backend-blst"))]
+#[cfg(feature = "bls-backend-dusk")]
 use backend_dusk as backend;
 
 /// Re-export backend BLS12-381 primitives through `dusk-curves`.
