@@ -6,7 +6,10 @@
 
 use alloc::vec::Vec;
 
-pub use dusk_bls12_381::*;
+pub use dusk_bls12_381::{
+    BlsScalar, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, GENERATOR, Gt,
+    MillerLoopResult, ROOT_OF_UNITY, TWO_ADACITY,
+};
 
 /// Scalar field element type for this backend.
 pub type Scalar = BlsScalar;
