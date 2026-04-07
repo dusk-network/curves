@@ -589,7 +589,7 @@ impl From<BlstG2Affine> for BlstG2Prepared {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Target-group element for the BLS12-381 pairing.
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, PartialEq, Eq)]
 pub struct Gt(::blst::blst_fp12);
 
 impl Gt {
@@ -599,19 +599,6 @@ impl Gt {
         Self(unsafe { *::blst::blst_fp12_one() })
     }
 }
-
-impl PartialEq for Gt {
-    fn eq(&self, other: &Self) -> bool {
-        let size = core::mem::size_of::<::blst::blst_fp12>();
-        let a =
-            unsafe { core::slice::from_raw_parts(core::ptr::addr_of!(self.0).cast::<u8>(), size) };
-        let b =
-            unsafe { core::slice::from_raw_parts(core::ptr::addr_of!(other.0).cast::<u8>(), size) };
-        a == b
-    }
-}
-
-impl Eq for Gt {}
 
 impl fmt::Debug for Gt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
