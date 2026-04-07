@@ -36,9 +36,15 @@ mod backend_dusk;
 #[cfg(feature = "bls-backend-dusk")]
 use backend_dusk as backend;
 
-/// Re-export backend BLS12-381 primitives through `dusk-curves`.
-#[allow(clippy::wildcard_imports)]
-pub use backend::*;
+/// Re-export the backend-agnostic BLS12-381 primitives through `dusk-curves`.
+///
+/// Only items that exist identically in both backends are listed here.
+/// Backend-internal helpers (`BlstG*` structs, `multi_miller_loop`,
+/// `multiscalar_mul` mod) are intentionally absent.
+pub use backend::{
+    BlsScalar, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, GENERATOR, Gt,
+    MillerLoopResult, ROOT_OF_UNITY, Scalar, TWO_ADACITY,
+};
 
 /// Hash arbitrary bytes to a BLS scalar.
 #[must_use]

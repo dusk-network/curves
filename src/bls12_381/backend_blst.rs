@@ -674,7 +674,7 @@ impl MillerLoopResult {
 
 /// Multi-Miller loop over pairs of (G1Affine, G2Prepared) points.
 #[must_use]
-pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult {
+pub(crate) fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult {
     if terms.is_empty() {
         return MillerLoopResult(unsafe { *::blst::blst_fp12_one() });
     }
@@ -687,7 +687,7 @@ pub fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult
 }
 
 /// Variable-base multiscalar multiplication (API-compatible module).
-pub mod multiscalar_mul {
+pub(crate) mod multiscalar_mul {
     use super::*;
 
     /// Variable-base multi-scalar multiplication over G1.
