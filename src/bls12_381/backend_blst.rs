@@ -703,12 +703,14 @@ pub mod multiscalar_mul {
 
 #[must_use]
 #[inline]
+/// NOTE: internal function comes from the dusk backend, not blst
 pub fn hash_to_scalar(bytes: &[u8]) -> Scalar {
     Scalar::hash_to_scalar(bytes)
 }
 
 #[must_use]
 #[inline]
+/// NOTE: internal function comes from the dusk backend, not blst
 pub fn scalar_from_wide(bytes: &[u8; 64]) -> Scalar {
     Scalar::from_bytes_wide(bytes)
 }
