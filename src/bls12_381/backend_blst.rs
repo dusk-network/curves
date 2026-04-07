@@ -28,7 +28,7 @@ use dusk_bytes::Serializable;
 pub use dusk_bls12_381::{BlsScalar, GENERATOR, ROOT_OF_UNITY, TWO_ADACITY};
 
 /// Scalar type for this backend — same as `BlsScalar`.
-pub type Scalar = BlsScalar;
+pub type Scalar = dusk_bls12_381::BlsScalar;
 
 // ── public type aliases ──────────────────────────────────────────────────────
 //
