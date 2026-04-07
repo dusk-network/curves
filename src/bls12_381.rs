@@ -26,6 +26,13 @@ compile_error!(
      use the default 'bls-backend-dusk' backend for rkyv serialization"
 );
 
+#[cfg(all(feature = "bls-backend-blst", feature = "parallel"))]
+compile_error!(
+    "feature 'parallel' is not supported with 'bls-backend-blst': the blst backend \
+     uses blst's own multi-scalar multiplication and does not use rayon; \
+     use the default 'bls-backend-dusk' backend for parallel support"
+);
+
 #[cfg(feature = "bls-backend-blst")]
 mod backend_blst;
 #[cfg(feature = "bls-backend-blst")]

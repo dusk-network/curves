@@ -719,7 +719,9 @@ pub fn pairing_product_is_identity(terms: &[(&G1Affine, &G2Affine)]) -> bool {
 mod tests {
     use super::*;
     use alloc::vec;
+    #[cfg(feature = "bls-backend-dusk")]
     use dusk_bls12_381::G1Affine as DuskG1Affine;
+    #[cfg(feature = "bls-backend-dusk")]
     use dusk_bls12_381::G2Affine as DuskG2Affine;
     use dusk_bytes::Serializable;
 
@@ -814,6 +816,7 @@ mod tests {
         assert!(pairing_product_is_identity(&[]));
     }
 
+    #[cfg(feature = "bls-backend-dusk")]
     #[test]
     fn blst_matches_dusk_g1_generator() {
         let blst_gen = G1Affine::generator();
@@ -823,6 +826,7 @@ mod tests {
         assert_eq!(blst_bytes[..], dusk_bytes[..]);
     }
 
+    #[cfg(feature = "bls-backend-dusk")]
     #[test]
     fn blst_matches_dusk_g2_generator() {
         let blst_gen = G2Affine::generator();
