@@ -51,7 +51,7 @@ pub type G2Prepared = BlstG2Prepared;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// G1 affine point wrapping `blst_p1_affine`.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default, PartialEq, Eq)]
 pub struct BlstG1Affine(pub(crate) ::blst::blst_p1_affine);
 
 impl BlstG1Affine {
@@ -114,20 +114,6 @@ impl Serializable<48> for BlstG1Affine {
 }
 
 // -- Trait helpers -----------------------------------------------------------
-
-impl Default for BlstG1Affine {
-    fn default() -> Self {
-        Self::identity()
-    }
-}
-
-impl PartialEq for BlstG1Affine {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_bytes() == other.to_bytes()
-    }
-}
-
-impl Eq for BlstG1Affine {}
 
 impl fmt::Debug for BlstG1Affine {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -220,7 +206,7 @@ impl Add<BlstG1Projective> for BlstG1Affine {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// G1 projective point wrapping `blst_p1`.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct BlstG1Projective(pub(crate) ::blst::blst_p1);
 
 impl BlstG1Projective {
@@ -250,14 +236,6 @@ impl Default for BlstG1Projective {
         Self::identity()
     }
 }
-
-impl PartialEq for BlstG1Projective {
-    fn eq(&self, other: &Self) -> bool {
-        BlstG1Affine::from(*self) == BlstG1Affine::from(*other)
-    }
-}
-
-impl Eq for BlstG1Projective {}
 
 impl fmt::Debug for BlstG1Projective {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -400,7 +378,7 @@ impl<'a> core::iter::Sum<&'a BlstG1Projective> for BlstG1Projective {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// G2 affine point wrapping `blst_p2_affine`.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default, PartialEq, Eq)]
 pub struct BlstG2Affine(pub(crate) ::blst::blst_p2_affine);
 
 impl BlstG2Affine {
@@ -440,20 +418,6 @@ impl Serializable<96> for BlstG2Affine {
 }
 
 // -- Trait helpers -----------------------------------------------------------
-
-impl Default for BlstG2Affine {
-    fn default() -> Self {
-        Self::identity()
-    }
-}
-
-impl PartialEq for BlstG2Affine {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_bytes() == other.to_bytes()
-    }
-}
-
-impl Eq for BlstG2Affine {}
 
 impl fmt::Debug for BlstG2Affine {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -625,7 +589,7 @@ impl From<BlstG2Affine> for BlstG2Prepared {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Target-group element for the BLS12-381 pairing.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct Gt(::blst::blst_fp12);
 
 impl Gt {
@@ -633,12 +597,6 @@ impl Gt {
     #[must_use]
     pub fn identity() -> Self {
         Self(unsafe { *::blst::blst_fp12_one() })
-    }
-}
-
-impl Default for Gt {
-    fn default() -> Self {
-        Self::identity()
     }
 }
 
