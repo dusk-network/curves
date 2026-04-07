@@ -7,17 +7,18 @@ name: Continuous integration
 
 jobs:
   analyze:
-    name: Code Analysis
+    name: Code Analysis (dusk backend)
     uses: dusk-network/.github/.github/workflows/code-analysis.yml@main
     with:
-      clippy_default: true
+      clippy_default: false
+      clippy_args: --release -- -D warnings
 
   analyze_blst:
     name: Code Analysis (blst backend)
     uses: dusk-network/.github/.github/workflows/code-analysis.yml@main
     with:
       clippy_default: false
-      clippy_args: --no-default-features --features bls-backend-blst
+      clippy_args: --no-default-features --features bls-backend-blst --release -- -D warnings
 
   dusk_analyzer:
     name: Dusk Analyzer

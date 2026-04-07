@@ -169,7 +169,7 @@ impl BlstG1Affine {
 
     /// Serialize to uncompressed form (96 bytes, big-endian).
     #[must_use]
-    pub fn to_raw_bytes(&self) -> [u8; Self::RAW_SIZE] {
+    pub fn to_raw_bytes(self) -> [u8; Self::RAW_SIZE] {
         let mut out = [0u8; Self::RAW_SIZE];
         unsafe { ::blst::blst_p1_affine_serialize(out.as_mut_ptr(), &raw const self.0) };
         out
@@ -1585,6 +1585,7 @@ impl MillerLoopResult {
 
 /// Multi-Miller loop over pairs of (G1Affine, G2Prepared) points.
 #[must_use]
+#[allow(dead_code)]
 pub(crate) fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult {
     if terms.is_empty() {
         return MillerLoopResult(unsafe { *::blst::blst_fp12_one() });
@@ -1598,6 +1599,7 @@ pub(crate) fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoo
 }
 
 /// Variable-base multiscalar multiplication (API-compatible module).
+#[allow(dead_code)]
 pub(crate) mod multiscalar_mul {
     use super::*;
 
