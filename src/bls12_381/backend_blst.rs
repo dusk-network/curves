@@ -202,11 +202,14 @@ impl Serializable<48> for BlstG1Affine {
     fn from_bytes(buf: &[u8; 48]) -> Result<Self, Self::Error> {
         let mut out = ::blst::blst_p1_affine::default();
         let err = unsafe { ::blst::blst_p1_uncompress(&raw mut out, buf.as_ptr()) };
-        if err == ::blst::BLST_ERROR::BLST_SUCCESS {
-            Ok(Self(out))
-        } else {
-            Err(dusk_bytes::Error::InvalidData)
+        if err != ::blst::BLST_ERROR::BLST_SUCCESS {
+            return Err(dusk_bytes::Error::InvalidData);
         }
+        let in_group = unsafe { ::blst::blst_p1_affine_in_g1(&raw const out) };
+        if !in_group {
+            return Err(dusk_bytes::Error::InvalidData);
+        }
+        Ok(Self(out))
     }
 }
 
@@ -329,8 +332,9 @@ impl GroupEncoding for BlstG1Affine {
     fn from_bytes(bytes: &Self::Repr) -> CtOption<Self> {
         let mut out = ::blst::blst_p1_affine::default();
         let err = unsafe { ::blst::blst_p1_uncompress(&raw mut out, bytes.0.as_ptr()) };
-        let is_ok = err == ::blst::BLST_ERROR::BLST_SUCCESS;
-        CtOption::new(Self(out), Choice::from(is_ok as u8))
+        let on_curve = err == ::blst::BLST_ERROR::BLST_SUCCESS;
+        let in_group = on_curve && unsafe { ::blst::blst_p1_affine_in_g1(&raw const out) };
+        CtOption::new(Self(out), Choice::from(in_group as u8))
     }
 
     fn from_bytes_unchecked(bytes: &Self::Repr) -> CtOption<Self> {
@@ -891,11 +895,14 @@ impl Serializable<96> for BlstG2Affine {
     fn from_bytes(buf: &[u8; 96]) -> Result<Self, Self::Error> {
         let mut out = ::blst::blst_p2_affine::default();
         let err = unsafe { ::blst::blst_p2_uncompress(&raw mut out, buf.as_ptr()) };
-        if err == ::blst::BLST_ERROR::BLST_SUCCESS {
-            Ok(Self(out))
-        } else {
-            Err(dusk_bytes::Error::InvalidData)
+        if err != ::blst::BLST_ERROR::BLST_SUCCESS {
+            return Err(dusk_bytes::Error::InvalidData);
         }
+        let in_group = unsafe { ::blst::blst_p2_affine_in_g2(&raw const out) };
+        if !in_group {
+            return Err(dusk_bytes::Error::InvalidData);
+        }
+        Ok(Self(out))
     }
 }
 
@@ -1017,8 +1024,9 @@ impl GroupEncoding for BlstG2Affine {
     fn from_bytes(bytes: &Self::Repr) -> CtOption<Self> {
         let mut out = ::blst::blst_p2_affine::default();
         let err = unsafe { ::blst::blst_p2_uncompress(&raw mut out, bytes.0.as_ptr()) };
-        let is_ok = err == ::blst::BLST_ERROR::BLST_SUCCESS;
-        CtOption::new(Self(out), Choice::from(is_ok as u8))
+        let on_curve = err == ::blst::BLST_ERROR::BLST_SUCCESS;
+        let in_group = on_curve && unsafe { ::blst::blst_p2_affine_in_g2(&raw const out) };
+        CtOption::new(Self(out), Choice::from(in_group as u8))
     }
 
     fn from_bytes_unchecked(bytes: &Self::Repr) -> CtOption<Self> {
