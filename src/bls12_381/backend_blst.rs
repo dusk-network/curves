@@ -1706,7 +1706,7 @@ pub fn pairing_product_is_identity(terms: &[(&G1Affine, &G2Affine)]) -> bool {
 
     let fp12 = ::blst::blst_fp12::miller_loop_n(qs.as_slice(), ps.as_slice());
     let gt = fp12.final_exp();
-    gt == unsafe { *::blst::blst_fp12_one() }
+    ::blst::blst_fp12::finalverify(&gt, unsafe { &*::blst::blst_fp12_one() })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
