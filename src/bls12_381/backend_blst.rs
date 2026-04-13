@@ -179,11 +179,18 @@ impl BlstG1Affine {
     /// checks.
     ///
     /// # Panics
-    /// Panics if `bytes.len() != RAW_SIZE`.
+    /// Panics if `bytes` does not contain a valid on-curve point encoding.
+    /// Encoding errors (invalid field elements, point not on curve) are treated
+    /// as hard failures; only the subgroup check is skipped.
     #[must_use]
     pub fn from_slice_unchecked(bytes: &[u8; Self::RAW_SIZE]) -> Self {
         let mut out = ::blst::blst_p1_affine::default();
-        let _ = unsafe { ::blst::blst_p1_deserialize(&raw mut out, bytes.as_ptr()) };
+        let err = unsafe { ::blst::blst_p1_deserialize(&raw mut out, bytes.as_ptr()) };
+        assert_eq!(
+            err,
+            ::blst::BLST_ERROR::BLST_SUCCESS,
+            "from_slice_unchecked: invalid G1 encoding"
+        );
         Self(out)
     }
 }
