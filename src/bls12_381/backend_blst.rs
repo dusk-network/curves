@@ -1715,6 +1715,15 @@ mod tests {
     }
 
     #[test]
+    fn g2_affine_identity_roundtrip() {
+        let id = G2Affine::identity();
+        let bytes = <G2Affine as Serializable<96>>::to_bytes(&id);
+        let decoded =
+            <G2Affine as Serializable<96>>::from_bytes(&bytes).expect("identity should roundtrip");
+        assert_eq!(id, decoded);
+    }
+
+    #[test]
     fn g2_affine_generator_roundtrip() {
         let g = G2Affine::generator();
         let bytes = <G2Affine as Serializable<96>>::to_bytes(&g);
