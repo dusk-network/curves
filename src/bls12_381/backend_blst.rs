@@ -480,11 +480,19 @@ impl BlstG1Projective {
         Self::from(BlstG1Affine::generator())
     }
 
-    /// Batch-convert an array of projective points to affine.
+    /// Batch-convert an array of projective points to affine using blst's
+    /// `blst_p1s_to_affine` (Montgomery batch inversion — one field
+    /// inversion shared across all points).
     pub fn batch_normalize(points: &[Self], out: &mut [BlstG1Affine]) {
         let n = core::cmp::min(points.len(), out.len());
+        if n == 0 {
+            return;
+        }
+        let blst_pts: Vec<::blst::blst_p1> = points[..n].iter().map(|p| p.0).collect();
+        let affines = ::blst::p1_affines::from(&blst_pts);
+        let affine_slice = affines.as_slice();
         for i in 0..n {
-            out[i] = BlstG1Affine::from(points[i]);
+            out[i] = BlstG1Affine(affine_slice[i]);
         }
     }
 }
@@ -1178,6 +1186,22 @@ impl BlstG2Projective {
     pub fn generator() -> Self {
         Self::from(BlstG2Affine::generator())
     }
+
+    /// Batch-convert an array of projective points to affine using blst's
+    /// `blst_p2s_to_affine` (Montgomery batch inversion — one field
+    /// inversion shared across all points).
+    pub fn batch_normalize(points: &[Self], out: &mut [BlstG2Affine]) {
+        let n = core::cmp::min(points.len(), out.len());
+        if n == 0 {
+            return;
+        }
+        let blst_pts: Vec<::blst::blst_p2> = points[..n].iter().map(|p| p.0).collect();
+        let affines = ::blst::p2_affines::from(&blst_pts);
+        let affine_slice = affines.as_slice();
+        for i in 0..n {
+            out[i] = BlstG2Affine(affine_slice[i]);
+        }
+    }
 }
 
 impl Default for BlstG2Projective {
@@ -1467,6 +1491,10 @@ impl Curve for BlstG2Projective {
 
     fn to_affine(&self) -> Self::AffineRepr {
         BlstG2Affine::from(*self)
+    }
+
+    fn batch_normalize(points: &[Self], out: &mut [Self::AffineRepr]) {
+        Self::batch_normalize(points, out);
     }
 }
 
