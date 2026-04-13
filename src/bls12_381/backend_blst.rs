@@ -638,7 +638,7 @@ impl Mul<BlsScalar> for BlstG1Projective {
         let bytes = rhs.to_bytes();
         let mut out = ::blst::blst_p1::default();
         unsafe {
-            ::blst::blst_p1_mult(&raw mut out, &raw const self.0, bytes.as_ptr(), 256);
+            ::blst::blst_p1_mult(&raw mut out, &raw const self.0, bytes.as_ptr(), 255);
         };
         Self(out)
     }
@@ -1329,7 +1329,7 @@ impl Mul<BlsScalar> for BlstG2Projective {
         let bytes = rhs.to_bytes();
         let mut out = ::blst::blst_p2::default();
         unsafe {
-            ::blst::blst_p2_mult(&raw mut out, &raw const self.0, bytes.as_ptr(), 256);
+            ::blst::blst_p2_mult(&raw mut out, &raw const self.0, bytes.as_ptr(), 255);
         };
         Self(out)
     }
