@@ -1894,6 +1894,23 @@ mod tests {
         assert!(pairing_product_is_identity(&[]));
     }
 
+    #[test]
+    fn pairing_g1_neg_g1_is_identity() {
+        // e(G1, G2) · e(-G1, G2) == 1  (exercises miller loop + final_exp)
+        let g1 = G1Affine::generator();
+        let neg_g1 = -g1;
+        let g2 = G2Affine::generator();
+        assert!(pairing_product_is_identity(&[(&g1, &g2), (&neg_g1, &g2)]));
+    }
+
+    #[test]
+    fn pairing_non_identity_is_not_identity() {
+        // A single non-trivial pairing term must not equal 1
+        let g1 = G1Affine::generator();
+        let g2 = G2Affine::generator();
+        assert!(!pairing_product_is_identity(&[(&g1, &g2)]));
+    }
+
     #[cfg(feature = "bls-backend-dusk")]
     #[test]
     fn blst_matches_dusk_g1_generator() {
