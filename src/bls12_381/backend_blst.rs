@@ -1598,7 +1598,7 @@ impl From<BlstG2Affine> for BlstG2Prepared {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Target-group element for the BLS12-381 pairing.
-#[derive(Copy, Clone, Default, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Gt(::blst::blst_fp12);
 
 impl Gt {
@@ -1606,6 +1606,12 @@ impl Gt {
     #[must_use]
     pub fn identity() -> Self {
         Self(unsafe { *::blst::blst_fp12_one() })
+    }
+}
+
+impl Default for Gt {
+    fn default() -> Self {
+        Self::identity()
     }
 }
 
