@@ -459,16 +459,6 @@ impl ::zeroize::Zeroize for BlstG1Affine {
     }
 }
 
-#[cfg(feature = "zeroize")]
-impl ::zeroize::ZeroizeOnDrop for BlstG1Affine {}
-
-#[cfg(feature = "zeroize")]
-impl Drop for BlstG1Affine {
-    fn drop(&mut self) {
-        self.zeroize();
-    }
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
 //  BlstG1Projective
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -874,16 +864,6 @@ impl ::zeroize::Zeroize for BlstG1Projective {
     }
 }
 
-#[cfg(feature = "zeroize")]
-impl ::zeroize::ZeroizeOnDrop for BlstG1Projective {}
-
-#[cfg(feature = "zeroize")]
-impl Drop for BlstG1Projective {
-    fn drop(&mut self) {
-        self.zeroize();
-    }
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
 //  BlstG2Affine
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1169,16 +1149,6 @@ impl ::zeroize::Zeroize for BlstG2Affine {
         let ptr = &mut self.0 as *mut ::blst::blst_p2_affine as *mut u8;
         let len = core::mem::size_of::<::blst::blst_p2_affine>();
         unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-    }
-}
-
-#[cfg(feature = "zeroize")]
-impl ::zeroize::ZeroizeOnDrop for BlstG2Affine {}
-
-#[cfg(feature = "zeroize")]
-impl Drop for BlstG2Affine {
-    fn drop(&mut self) {
-        self.zeroize();
     }
 }
 
@@ -1587,16 +1557,6 @@ impl ::zeroize::Zeroize for BlstG2Projective {
         let ptr = &mut self.0 as *mut ::blst::blst_p2 as *mut u8;
         let len = core::mem::size_of::<::blst::blst_p2>();
         unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-    }
-}
-
-#[cfg(feature = "zeroize")]
-impl ::zeroize::ZeroizeOnDrop for BlstG2Projective {}
-
-#[cfg(feature = "zeroize")]
-impl Drop for BlstG2Projective {
-    fn drop(&mut self) {
-        self.zeroize();
     }
 }
 
