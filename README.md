@@ -26,10 +26,10 @@ Regardless of the backend, the crate exposes the same types and functions
 through `dusk_curves::bls12_381`:
 
 **Types** — `BlsScalar` (`Scalar`), `G1Affine`, `G1Projective`, `G2Affine`,
-`G2Projective`, `G2Prepared`, `Gt`, `MillerLoopResult`
+`G2Projective`, `G2Prepared`, `Gt`
 
 **Functions** — `hash_to_scalar`, `scalar_from_wide`, `msm_variable_base`,
-`multi_miller_loop`, `pairing_product_is_identity`
+`multi_miller_loop_result`, `pairing_product_is_identity`
 
 **Constants** — `GENERATOR`, `ROOT_OF_UNITY`, `TWO_ADACITY`
 

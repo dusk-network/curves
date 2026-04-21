@@ -47,10 +47,10 @@ use backend_dusk as backend;
 ///
 /// Only items that exist identically in both backends are listed here.
 /// Backend-internal helpers (`BlstG*` structs, `multi_miller_loop`,
-/// `multiscalar_mul` mod) are intentionally absent.
+/// `MillerLoopResult`, `multiscalar_mul` mod) are intentionally absent.
 pub use backend::{
     BlsScalar, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, GENERATOR, Gt,
-    MillerLoopResult, ROOT_OF_UNITY, Scalar, TWO_ADACITY,
+    ROOT_OF_UNITY, Scalar, TWO_ADACITY,
 };
 
 /// Hash arbitrary bytes to a BLS scalar.
@@ -72,6 +72,14 @@ pub fn scalar_from_wide(bytes: &[u8; 64]) -> Scalar {
 #[inline]
 pub fn msm_variable_base(points: &[G1Affine], scalars: &[Scalar]) -> G1Projective {
     backend::msm_variable_base(points, scalars)
+}
+
+/// Compute the multi-Miller loop over `(G1Affine, G2Prepared)` pairs and apply
+/// final exponentiation, returning the result as a `Gt` element.
+#[must_use]
+#[inline]
+pub fn multi_miller_loop_result(terms: &[(&G1Affine, &G2Prepared)]) -> Gt {
+    backend::multi_miller_loop_result(terms)
 }
 
 /// Checks whether the product of pairings over `(G1Affine, G2Affine)` terms

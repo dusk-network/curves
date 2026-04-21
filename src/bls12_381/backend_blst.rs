@@ -1641,6 +1641,12 @@ pub(crate) fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoo
     ))
 }
 
+/// Compute the multi-Miller loop and apply final exponentiation, returning a `Gt` element.
+#[must_use]
+pub fn multi_miller_loop_result(terms: &[(&G1Affine, &G2Prepared)]) -> Gt {
+    multi_miller_loop(terms).final_exponentiation()
+}
+
 /// Variable-base multiscalar multiplication (API-compatible module).
 #[allow(dead_code)]
 pub(crate) mod multiscalar_mul {

@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 
 pub use dusk_bls12_381::{
     BlsScalar, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, GENERATOR, Gt,
-    MillerLoopResult, ROOT_OF_UNITY, TWO_ADACITY,
+    ROOT_OF_UNITY, TWO_ADACITY,
 };
 
 /// Scalar field element type for this backend.
@@ -30,6 +30,12 @@ pub fn scalar_from_wide(bytes: &[u8; 64]) -> Scalar {
 #[inline]
 pub fn msm_variable_base(points: &[G1Affine], scalars: &[Scalar]) -> G1Projective {
     dusk_bls12_381::multiscalar_mul::msm_variable_base(points, scalars)
+}
+
+#[must_use]
+#[inline]
+pub fn multi_miller_loop_result(terms: &[(&G1Affine, &G2Prepared)]) -> Gt {
+    dusk_bls12_381::multi_miller_loop(terms).final_exponentiation()
 }
 
 #[must_use]
