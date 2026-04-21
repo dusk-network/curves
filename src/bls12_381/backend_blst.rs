@@ -186,7 +186,7 @@ impl BlstG1Affine {
     #[must_use]
     pub unsafe fn from_slice_unchecked(bytes: &[u8; Self::RAW_SIZE]) -> Self {
         let mut out = ::blst::blst_p1_affine::default();
-        ::blst::blst_p1_deserialize(&raw mut out, bytes.as_ptr());
+        unsafe { ::blst::blst_p1_deserialize(&raw mut out, bytes.as_ptr()) };
         Self(out)
     }
 }
