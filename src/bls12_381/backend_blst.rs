@@ -462,6 +462,13 @@ impl ::zeroize::Zeroize for BlstG1Affine {
 #[cfg(feature = "zeroize")]
 impl ::zeroize::ZeroizeOnDrop for BlstG1Affine {}
 
+#[cfg(feature = "zeroize")]
+impl Drop for BlstG1Affine {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  BlstG1Projective
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -870,6 +877,13 @@ impl ::zeroize::Zeroize for BlstG1Projective {
 #[cfg(feature = "zeroize")]
 impl ::zeroize::ZeroizeOnDrop for BlstG1Projective {}
 
+#[cfg(feature = "zeroize")]
+impl Drop for BlstG1Projective {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  BlstG2Affine
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1160,6 +1174,13 @@ impl ::zeroize::Zeroize for BlstG2Affine {
 
 #[cfg(feature = "zeroize")]
 impl ::zeroize::ZeroizeOnDrop for BlstG2Affine {}
+
+#[cfg(feature = "zeroize")]
+impl Drop for BlstG2Affine {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  BlstG2Projective
@@ -1571,6 +1592,13 @@ impl ::zeroize::Zeroize for BlstG2Projective {
 
 #[cfg(feature = "zeroize")]
 impl ::zeroize::ZeroizeOnDrop for BlstG2Projective {}
+
+#[cfg(feature = "zeroize")]
+impl Drop for BlstG2Projective {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  BlstG2Prepared
