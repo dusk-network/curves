@@ -175,22 +175,18 @@ impl BlstG1Affine {
         out
     }
 
-    /// Deserialize from uncompressed form (96 bytes) **without** group-membership
-    /// checks.
+    /// Deserialize from uncompressed form (96 bytes) **without** on-curve or
+    /// group-membership checks.
     ///
-    /// # Panics
-    /// Panics if `bytes` does not contain a valid on-curve point encoding.
-    /// Encoding errors (invalid field elements, point not on curve) are treated
-    /// as hard failures; only the subgroup check is skipped.
+    /// # Safety
+    /// The caller must guarantee that `bytes` contains a valid, uncompressed
+    /// encoding of a point that lies on the BLS12-381 G1 curve.  Passing an
+    /// invalid encoding produces an undefined (but memory-safe) `BlstG1Affine`
+    /// value; subsequent operations on it may give incorrect results.
     #[must_use]
-    pub fn from_slice_unchecked(bytes: &[u8; Self::RAW_SIZE]) -> Self {
+    pub unsafe fn from_slice_unchecked(bytes: &[u8; Self::RAW_SIZE]) -> Self {
         let mut out = ::blst::blst_p1_affine::default();
-        let err = unsafe { ::blst::blst_p1_deserialize(&raw mut out, bytes.as_ptr()) };
-        assert_eq!(
-            err,
-            ::blst::BLST_ERROR::BLST_SUCCESS,
-            "from_slice_unchecked: invalid G1 encoding"
-        );
+        ::blst::blst_p1_deserialize(&raw mut out, bytes.as_ptr());
         Self(out)
     }
 }
@@ -1740,7 +1736,7 @@ mod tests {
     fn g1_affine_raw_roundtrip() {
         let g = G1Affine::generator();
         let raw = g.to_raw_bytes();
-        let decoded = G1Affine::from_slice_unchecked(&raw);
+        let decoded = unsafe { G1Affine::from_slice_unchecked(&raw) };
         assert_eq!(g, decoded);
     }
 
