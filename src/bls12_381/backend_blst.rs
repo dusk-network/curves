@@ -1628,7 +1628,6 @@ impl MillerLoopResult {
 
 /// Multi-Miller loop over pairs of (G1Affine, G2Prepared) points.
 #[must_use]
-#[allow(dead_code)]
 pub(crate) fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult {
     if terms.is_empty() {
         return MillerLoopResult(unsafe { *::blst::blst_fp12_one() });
@@ -1645,18 +1644,6 @@ pub(crate) fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoo
 #[must_use]
 pub fn multi_miller_loop_result(terms: &[(&G1Affine, &G2Prepared)]) -> Gt {
     multi_miller_loop(terms).final_exponentiation()
-}
-
-/// Variable-base multiscalar multiplication (API-compatible module).
-#[allow(dead_code)]
-pub(crate) mod multiscalar_mul {
-    use super::*;
-
-    /// Variable-base multi-scalar multiplication over G1.
-    #[must_use]
-    pub fn msm_variable_base(points: &[G1Affine], scalars: &[Scalar]) -> G1Projective {
-        super::msm_variable_base(points, scalars)
-    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1723,10 +1710,6 @@ pub fn pairing_product_is_identity(terms: &[(&G1Affine, &G2Affine)]) -> bool {
 mod tests {
     use super::*;
     use alloc::vec;
-    #[cfg(feature = "bls-backend-dusk")]
-    use dusk_bls12_381::G1Affine as DuskG1Affine;
-    #[cfg(feature = "bls-backend-dusk")]
-    use dusk_bls12_381::G2Affine as DuskG2Affine;
     use dusk_bytes::Serializable;
 
     #[test]
@@ -1950,25 +1933,5 @@ mod tests {
         let g1 = G1Affine::generator();
         let g2 = G2Affine::generator();
         assert!(!pairing_product_is_identity(&[(&g1, &g2)]));
-    }
-
-    #[cfg(feature = "bls-backend-dusk")]
-    #[test]
-    fn blst_matches_dusk_g1_generator() {
-        let blst_gen = G1Affine::generator();
-        let dusk_gen = DuskG1Affine::generator();
-        let blst_bytes = blst_gen.to_bytes();
-        let dusk_bytes = dusk_gen.to_bytes();
-        assert_eq!(blst_bytes[..], dusk_bytes[..]);
-    }
-
-    #[cfg(feature = "bls-backend-dusk")]
-    #[test]
-    fn blst_matches_dusk_g2_generator() {
-        let blst_gen = G2Affine::generator();
-        let dusk_gen = DuskG2Affine::generator();
-        let blst_bytes = blst_gen.to_bytes();
-        let dusk_bytes = dusk_gen.to_bytes();
-        assert_eq!(blst_bytes[..], dusk_bytes[..]);
     }
 }
