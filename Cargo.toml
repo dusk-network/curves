@@ -9,17 +9,16 @@ license = "MPL-2.0"
 dusk-bytes = "0.1"
 blst = { version = "0.3", default-features = false, optional = true }
 dusk-bls12_381 = { version = "0.14", default-features = false, optional = true }
-ff = { version = "0.13", default-features = false }
-group = { version = "0.13", default-features = false }
-rand_core = { version = "0.6", default-features = false }
-subtle = { version = "2", default-features = false }
+group = { version = "0.13", default-features = false, optional = true }
+rand_core = { version = "0.6", default-features = false, optional = true }
+subtle = { version = "2", default-features = false, optional = true }
 zeroize = { version = "1", default-features = false, optional = true }
 rkyv = { version = "0.7", optional = true, default-features = false }
 
 [features]
 default = ["bls-backend-dusk"]
 bls-backend-dusk = ["dep:dusk-bls12_381", "dusk-bls12_381/groups", "dusk-bls12_381/pairings", "dusk-bls12_381/alloc"]
-bls-backend-blst = ["dep:blst", "dep:dusk-bls12_381", "dusk-bls12_381/alloc"]
+bls-backend-blst = ["dep:blst", "dep:dusk-bls12_381", "dusk-bls12_381/alloc", "dep:group", "dep:rand_core", "dep:subtle"]
 # Forward dusk-bls12_381 features for downstream crates (dusk backend only)
 default-bls = ["bls-backend-dusk", "dusk-bls12_381/default"]
 parallel = ["dusk-bls12_381/parallel"]
