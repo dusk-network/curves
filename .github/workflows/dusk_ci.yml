@@ -1,73 +1,37 @@
 on:
   pull_request:
   push:
-    branches: main
+    branches:
+      - main
 
 name: Continuous integration
 
 jobs:
-  fmt:
-    name: Formatting
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - run: make fmt-check
-
-  clippy_dusk:
-    name: Clippy (dusk backend)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - run: make clippy-dusk
-      - run: make clippy-dusk-rkyv
-      - run: make clippy-dusk-zeroize
-      - run: make clippy-dusk-parallel
-
-  clippy_blst:
-    name: Clippy (blst backend)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - run: make clippy-blst
-
-  dusk_analyzer:
+  dusk-analysis:
     name: Dusk Analyzer
     uses: dusk-network/.github/.github/workflows/dusk-analysis.yml@main
 
-  build_docs:
-    name: Build Documentation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - run: make doc-dusk
-      - run: make doc-blst
+  code-quality:
+    name: Code quality
+    uses: dusk-network/.github/.github/workflows/run-make.yml@main
+    with:
+      make_target: cq
 
-  test_dusk_backend:
-    name: Test (dusk backend)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - run: make test-dusk
-      - run: make test-dusk-rkyv
+  docs:
+    name: Build docs
+    uses: dusk-network/.github/.github/workflows/run-make.yml@main
+    with:
+      make_target: doc
 
-  test_blst_backend:
-    name: Test (blst backend)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - run: make test-blst
+  test:
+    name: Run tests
+    uses: dusk-network/.github/.github/workflows/run-make.yml@main
+    with:
+      make_target: test
 
-  check_no_std:
+  no-std:
     name: no_std compatibility
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Swatinem/rust-cache@v2
-      - run: rustup target add wasm32-unknown-unknown
-      - run: make check-no-std
+    uses: dusk-network/.github/.github/workflows/run-make.yml@main
+    with:
+      make_target: no-std
+      rust_target: wasm32-unknown-unknown
