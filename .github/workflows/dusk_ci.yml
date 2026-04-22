@@ -6,19 +6,32 @@ on:
 name: Continuous integration
 
 jobs:
-  analyze:
-    name: Code Analysis (dusk backend)
-    uses: dusk-network/.github/.github/workflows/code-analysis.yml@main
-    with:
-      clippy_default: false
-      clippy_args: --release -- -D warnings
+  fmt:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: make fmt-check
 
-  analyze_blst:
-    name: Code Analysis (blst backend)
-    uses: dusk-network/.github/.github/workflows/code-analysis.yml@main
-    with:
-      clippy_default: false
-      clippy_args: --no-default-features --features bls-backend-blst --release -- -D warnings
+  clippy_dusk:
+    name: Clippy (dusk backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: make clippy-dusk
+      - run: make clippy-dusk-rkyv
+      - run: make clippy-dusk-zeroize
+      - run: make clippy-dusk-parallel
+
+  clippy_blst:
+    name: Clippy (blst backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: make clippy-blst
 
   dusk_analyzer:
     name: Dusk Analyzer
@@ -30,17 +43,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
-      - run: cargo doc --no-deps
-      - run: cargo doc --no-deps --no-default-features --features bls-backend-blst
+      - run: make doc-dusk
+      - run: make doc-blst
 
   test_dusk_backend:
-    name: Test dusk backend
-    uses: dusk-network/.github/.github/workflows/run-tests.yml@main
-
-  test_blst_backend:
-    name: Test blst backend
+    name: Test (dusk backend)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --no-default-features --features bls-backend-blst
+      - run: make test-dusk
+      - run: make test-dusk-rkyv
+
+  test_blst_backend:
+    name: Test (blst backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: make test-blst
+
+  check_no_std:
+    name: no_std compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: rustup target add wasm32-unknown-unknown
+      - run: make check-no-std
