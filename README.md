@@ -1,14 +1,19 @@
 # Dusk Curves
 
-A backend-agnostic wrapper for elliptic curve operations.
+A backend-agnostic wrapper for elliptic curve operations used by Dusk Network.
 
 `dusk-curves` lets downstream Dusk crates work with a single,
 stable set of curve types and functions while the underlying implementation can
 be swapped at compile time via Cargo features — **with no source changes required if swapping by the same curve construction (e.g. the BLS12-381)**.
 
-## Backends
+Today the crate is focused on BLS12-381. The overall design is intentionally
+module-oriented so additional curves can be added later behind the same model:
+a stable public facade with interchangeable backends where needed.
 
-At the moment we support the following curves / backends:
+## Current support
+
+Today the crate exposes `dusk_curves::bls12_381` and supports the following
+BLS12-381 backends:
 
 | Feature | Backend | Description |
 |---|---|---|
@@ -19,6 +24,22 @@ The two features are **mutually exclusive** — enabling both is a compile error
 
 [`dusk-bls12_381`]: https://crates.io/crates/dusk-bls12_381
 [`blst`]: https://crates.io/crates/blst
+
+## Security and correctness
+
+This crate is security-sensitive. Dusk Network relies on BLS12-381 as a core
+primitive, so swapping backends must not change the observable semantics of the
+public API.
+
+In practice, that means backend changes and refactors must preserve:
+
+- canonical serialization and deserialization behavior
+- rejection of invalid, off-curve, and wrong-subgroup points on safe APIs
+- scalar reduction and hashing behavior
+- group equality, identity handling, and pairing results
+
+If two backends differ on accepted inputs, encodings, equality, or pairing
+results, that is a bug rather than an implementation detail.
 
 ## Public API
 
@@ -58,13 +79,27 @@ Then import the curve primitives:
 use dusk_curves::bls12_381::{BlsScalar, G1Affine, G1Projective};
 ```
 
-## Feature forwarding
+## Feature flags
 
-Some `dusk-bls12_381` features are forwarded for downstream convenience:
+- `bls-backend-dusk` — default backend, based on `dusk-bls12_381`
+- `bls-backend-blst` — alternate backend, based on `blst`
+- `default-bls` — enables the full default feature set of `dusk-bls12_381`
+- `parallel` — enables Rayon parallelism on the dusk backend only
+- `rkyv-impl` — enables `rkyv` archiving and serialization on the dusk backend only
+- `zeroize` — enables zeroization support in this crate
 
-- `default-bls` — enables the full default feature set (includes `parallel`)
-- `parallel` — enables Rayon parallelism
-- `rkyv-impl` — enables `rkyv` (de)serialization
+## Development
+
+Use the `Makefile` targets for local validation and CI parity:
+
+- `make fmt-check`
+- `make clippy`
+- `make test`
+- `make doc`
+- `make check-no-std`
+
+Targeted backend checks are also available, including `make clippy-dusk`,
+`make clippy-blst`, `make test-dusk`, and `make test-blst`.
 
 ## License
 
