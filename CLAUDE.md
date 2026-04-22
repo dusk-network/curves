@@ -13,4 +13,4 @@ Quick reminders:
   exclusive.
 - `parallel` and `rkyv-impl` are dusk-only.
 - Use `make` targets for validation: `make fmt-check`, `make clippy`,
-  `make test`, `make doc`, `make check-no-std`.
+  `make test`, `make doc`, `make no-std`.

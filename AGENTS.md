@@ -161,7 +161,7 @@ Use the `Makefile` targets instead of ad hoc cargo invocations.
 - `make clippy`
 - `make test`
 - `make doc`
-- `make check-no-std`
+- `make no-std`
 
 Targeted commands:
 
@@ -206,7 +206,7 @@ If a change is security-sensitive and there is no focused test yet, add one.
 - do not treat backend-only differences as harmless if they are observable from
   the public API
 - keep re-exports synchronized between backend modules and the public facade
-- `check-no-std` uses `wasm32-unknown-unknown` because the crate needs `alloc`
+- `no-std` uses `wasm32-unknown-unknown` because the crate needs `alloc`
   but not `std`
 - CI intentionally lints dusk and blst separately; do not collapse those into a
   single backend-specific command

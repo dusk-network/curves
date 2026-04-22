@@ -155,7 +155,7 @@ Use the `Makefile` targets for local validation and CI parity:
 - `make clippy`
 - `make test`
 - `make doc`
-- `make check-no-std`
+- `make no-std`
 
 Targeted checks are also available, including:
 
