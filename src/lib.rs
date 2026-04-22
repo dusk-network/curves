@@ -4,14 +4,9 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-//! Backend-agnostic wrapper for elliptic curve operations.
-//!
-//! Enable the `bls-backend-dusk` (default) or `bls-backend-blst` feature to
-//! select the underlying implementation. The public API is identical
-//! regardless of the backend.
-
 #![no_std]
 #![deny(missing_docs)]
+#![doc = include_str!("../README.md")]
 
 extern crate alloc;
 
