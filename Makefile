@@ -1,29 +1,26 @@
-# ── Feature sets ─────────────────────────────────────────────────────────────
 BLST     := --no-default-features --features bls-backend-blst
 RKYV     := --features rkyv-impl
 ZEROIZE  := --features zeroize
 PARALLEL := --features parallel
 
-# Common clippy flags (release profile; treat all warnings as errors)
-CLIPPY := --release -- -D warnings
+CLIPPY   := --release -- -D warnings
 
-.PHONY: all fmt fmt-check \
-        clippy clippy-dusk clippy-dusk-rkyv clippy-dusk-zeroize \
-        clippy-dusk-parallel clippy-blst \
+.PHONY: all \
+        fmt fmt-check \
+        clippy clippy-dusk clippy-dusk-rkyv clippy-dusk-zeroize clippy-dusk-parallel clippy-blst \
         test test-dusk test-dusk-rkyv test-blst \
         doc doc-dusk doc-blst \
-        check-no-std
+        cq \
+        no-std
 
-all: fmt-check clippy test doc
+all: cq test doc no-std
 
-# ── Formatting ────────────────────────────────────────────────────────────────
 fmt:
-	cargo fmt
+	cargo fmt --all
 
 fmt-check:
-	cargo fmt --check
+	cargo fmt --all --check
 
-# ── Clippy ────────────────────────────────────────────────────────────────────
 clippy: clippy-dusk clippy-dusk-rkyv clippy-dusk-zeroize clippy-dusk-parallel clippy-blst
 
 clippy-dusk:
@@ -41,7 +38,6 @@ clippy-dusk-parallel:
 clippy-blst:
 	cargo clippy $(BLST) $(CLIPPY)
 
-# ── Tests ─────────────────────────────────────────────────────────────────────
 test: test-dusk test-dusk-rkyv test-blst
 
 test-dusk:
@@ -53,7 +49,6 @@ test-dusk-rkyv:
 test-blst:
 	cargo test $(BLST)
 
-# ── Documentation ─────────────────────────────────────────────────────────────
 doc: doc-dusk doc-blst
 
 doc-dusk:
@@ -62,8 +57,8 @@ doc-dusk:
 doc-blst:
 	cargo doc --no-deps $(BLST)
 
-# ── no_std compatibility ──────────────────────────────────────────────────────
-# Uses wasm32-unknown-unknown: a no_std target with alloc, suitable for
-# pure-Rust crates.  Run `rustup target add wasm32-unknown-unknown` first.
-check-no-std:
+cq: fmt-check clippy
+
+# This currently checks the default dusk backend on a no_std target.
+no-std:
 	cargo check --target wasm32-unknown-unknown
