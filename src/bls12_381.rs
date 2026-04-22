@@ -53,6 +53,13 @@ pub use backend::{
     ROOT_OF_UNITY, Scalar, TWO_ADACITY,
 };
 
+#[cfg(feature = "rkyv-impl")]
+pub use backend::{
+    ArchivedBlsScalar, ArchivedG1Affine, ArchivedG2Affine, ArchivedG2Prepared, ArchivedGt,
+    ArchivedMillerLoopResult, BlsScalarResolver, G1AffineResolver, G2AffineResolver,
+    G2PreparedResolver, GtResolver, MillerLoopResultResolver,
+};
+
 /// Hash arbitrary bytes to a BLS scalar.
 #[must_use]
 #[inline]

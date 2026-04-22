@@ -11,6 +11,13 @@ pub use dusk_bls12_381::{
     ROOT_OF_UNITY, TWO_ADACITY,
 };
 
+#[cfg(feature = "rkyv-impl")]
+pub use dusk_bls12_381::{
+    ArchivedBlsScalar, ArchivedG1Affine, ArchivedG2Affine, ArchivedG2Prepared, ArchivedGt,
+    ArchivedMillerLoopResult, BlsScalarResolver, G1AffineResolver, G2AffineResolver,
+    G2PreparedResolver, GtResolver, MillerLoopResultResolver,
+};
+
 /// Scalar field element type for this backend.
 pub type Scalar = BlsScalar;
 

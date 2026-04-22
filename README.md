@@ -33,6 +33,11 @@ through `dusk_curves::bls12_381`:
 
 **Constants** — `GENERATOR`, `ROOT_OF_UNITY`, `TWO_ADACITY`
 
+**rkyv types** *(requires `rkyv-impl`, dusk backend only)* —
+`ArchivedBlsScalar`, `ArchivedG1Affine`, `ArchivedG2Affine`, `ArchivedG2Prepared`,
+`ArchivedGt`, `ArchivedMillerLoopResult`, `BlsScalarResolver`, `G1AffineResolver`,
+`G2AffineResolver`, `G2PreparedResolver`, `GtResolver`, `MillerLoopResultResolver`
+
 ## Usage
 
 Add the dependency to your `Cargo.toml`:
