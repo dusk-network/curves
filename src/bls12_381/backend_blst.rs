@@ -464,8 +464,16 @@ impl ::zeroize::Zeroize for BlstG1Affine {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// G1 projective point wrapping `blst_p1`.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone)]
 pub struct BlstG1Projective(pub(crate) ::blst::blst_p1);
+
+impl PartialEq for BlstG1Projective {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { ::blst::blst_p1_is_equal(&raw const self.0, &raw const other.0) }
+    }
+}
+
+impl Eq for BlstG1Projective {}
 
 impl BlstG1Projective {
     /// The identity element.
