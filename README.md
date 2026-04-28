@@ -80,6 +80,12 @@ surface:
 - **Functions:** `hash_to_scalar`, `scalar_from_wide`, `msm_variable_base`, `multi_miller_loop_result`, `pairing_product_is_identity`
 - **Constants:** `GENERATOR`, `ROOT_OF_UNITY`, `TWO_ADACITY`
 
+The portability guarantee applies to that shared facade. The default dusk
+backend forwards upstream `dusk-bls12_381` types directly, so additional
+inherent methods from the upstream crate may still be reachable there. Treat
+those methods as backend-specific: if code must compile against both backends,
+stick to the shared `dusk_curves::bls12_381` surface and parity methods only.
+
 <details>
 <summary><strong><code>rkyv-impl</code> additions</strong> <em>(dusk backend only)</em></summary>
 
