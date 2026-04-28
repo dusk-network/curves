@@ -192,6 +192,7 @@ impl G1Affine {
     pub const RAW_SIZE: usize = 97;
 
     /// Serialize to the dusk-compatible raw representation.
+    /// Encoding uses Montgomery-form little-endian limbs, identical to dusk_bls12_381's internal Fp layout.
     #[must_use]
     pub fn to_raw_bytes(&self) -> [u8; Self::RAW_SIZE] {
         let mut out = [0u8; Self::RAW_SIZE];
@@ -1025,6 +1026,7 @@ impl G2Affine {
     pub const RAW_SIZE: usize = 193;
 
     /// Serialize to the dusk-compatible raw representation.
+    /// Encoding uses Montgomery-form little-endian limbs, identical to dusk_bls12_381's internal Fp layout.
     #[must_use]
     pub fn to_raw_bytes(&self) -> [u8; Self::RAW_SIZE] {
         let mut out = [0u8; Self::RAW_SIZE];
