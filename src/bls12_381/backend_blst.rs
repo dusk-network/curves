@@ -12,9 +12,7 @@
 //! provides all required trait impls (`ff::Field`, `Serializable`, etc.) and
 //! the scalar field arithmetic does not benefit from the blst C library.
 
-use core::borrow::Borrow;
 use core::fmt;
-use core::iter::Sum;
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use ::blst::MultiPoint;
@@ -54,94 +52,6 @@ where
         word.copy_from_slice(chunk);
         *limb = u64::from_le_bytes(word);
     }
-}
-
-fn conditional_select_fp(
-    a: &::blst::blst_fp,
-    b: &::blst::blst_fp,
-    choice: Choice,
-) -> ::blst::blst_fp {
-    let mut out = ::blst::blst_fp::default();
-    for i in 0..out.l.len() {
-        out.l[i] = u64::conditional_select(&a.l[i], &b.l[i], choice);
-    }
-    out
-}
-
-fn conditional_select_fp2(
-    a: &::blst::blst_fp2,
-    b: &::blst::blst_fp2,
-    choice: Choice,
-) -> ::blst::blst_fp2 {
-    ::blst::blst_fp2 {
-        fp: [
-            conditional_select_fp(&a.fp[0], &b.fp[0], choice),
-            conditional_select_fp(&a.fp[1], &b.fp[1], choice),
-        ],
-    }
-}
-
-fn conditional_select_fp6(
-    a: &::blst::blst_fp6,
-    b: &::blst::blst_fp6,
-    choice: Choice,
-) -> ::blst::blst_fp6 {
-    ::blst::blst_fp6 {
-        fp2: [
-            conditional_select_fp2(&a.fp2[0], &b.fp2[0], choice),
-            conditional_select_fp2(&a.fp2[1], &b.fp2[1], choice),
-            conditional_select_fp2(&a.fp2[2], &b.fp2[2], choice),
-        ],
-    }
-}
-
-fn conditional_select_fp12(
-    a: &::blst::blst_fp12,
-    b: &::blst::blst_fp12,
-    choice: Choice,
-) -> ::blst::blst_fp12 {
-    ::blst::blst_fp12 {
-        fp6: [
-            conditional_select_fp6(&a.fp6[0], &b.fp6[0], choice),
-            conditional_select_fp6(&a.fp6[1], &b.fp6[1], choice),
-        ],
-    }
-}
-
-fn dusk_g1_affine_from_blst(point: &G1Affine) -> dusk_bls12_381::G1Affine {
-    let bytes = <G1Affine as Serializable<48>>::to_bytes(point);
-    <dusk_bls12_381::G1Affine as dusk_bytes::Serializable<48>>::from_bytes(&bytes)
-        .expect("blst G1Affine must serialize canonically")
-}
-
-fn dusk_g2_affine_from_blst(point: &G2Affine) -> dusk_bls12_381::G2Affine {
-    let bytes = <G2Affine as Serializable<96>>::to_bytes(point);
-    <dusk_bls12_381::G2Affine as dusk_bytes::Serializable<96>>::from_bytes(&bytes)
-        .expect("blst G2Affine must serialize canonically")
-}
-
-fn blst_g1_affine_from_dusk(point: &dusk_bls12_381::G1Affine) -> G1Affine {
-    let bytes = dusk_bytes::Serializable::<48>::to_bytes(point);
-    <G1Affine as Serializable<48>>::from_bytes(&bytes)
-        .expect("dusk G1Affine must serialize canonically")
-}
-
-fn blst_g2_affine_from_dusk(point: &dusk_bls12_381::G2Affine) -> G2Affine {
-    let bytes = dusk_bytes::Serializable::<96>::to_bytes(point);
-    <G2Affine as Serializable<96>>::from_bytes(&bytes)
-        .expect("dusk G2Affine must serialize canonically")
-}
-
-fn blst_g1_projective_from_dusk(point: &dusk_bls12_381::G1Projective) -> G1Projective {
-    G1Projective::from(blst_g1_affine_from_dusk(&dusk_bls12_381::G1Affine::from(
-        point,
-    )))
-}
-
-fn blst_g2_projective_from_dusk(point: &dusk_bls12_381::G2Projective) -> G2Projective {
-    G2Projective::from(blst_g2_affine_from_dusk(&dusk_bls12_381::G2Affine::from(
-        point,
-    )))
 }
 
 macro_rules! impl_ref_binops {
@@ -313,44 +223,6 @@ impl G1Affine {
             out.x.l.iter_mut().chain(out.y.l.iter_mut()),
         );
         Self(out)
-    }
-
-    /// Serializes this element into compressed form.
-    #[must_use]
-    pub fn to_compressed(&self) -> [u8; 48] {
-        <Self as Serializable<48>>::to_bytes(self)
-    }
-
-    /// Serializes this element into uncompressed canonical form.
-    #[must_use]
-    pub fn to_uncompressed(&self) -> [u8; 96] {
-        let mut out = [0u8; 96];
-        unsafe { ::blst::blst_p1_affine_serialize(out.as_mut_ptr(), &raw const self.0) };
-        out
-    }
-
-    /// Attempts to deserialize a compressed element.
-    #[must_use]
-    pub fn from_compressed(bytes: &[u8; 48]) -> CtOption<Self> {
-        <Self as GroupEncoding>::from_bytes(&G1Compressed(*bytes))
-    }
-
-    /// Attempts to deserialize a compressed element without subgroup checks.
-    #[must_use]
-    pub fn from_compressed_unchecked(bytes: &[u8; 48]) -> CtOption<Self> {
-        <Self as GroupEncoding>::from_bytes_unchecked(&G1Compressed(*bytes))
-    }
-
-    /// Attempts to deserialize an uncompressed element.
-    #[must_use]
-    pub fn from_uncompressed(bytes: &[u8; 96]) -> CtOption<Self> {
-        <Self as UncompressedEncoding>::from_uncompressed(&G1Uncompressed(*bytes))
-    }
-
-    /// Attempts to deserialize an uncompressed element without subgroup checks.
-    #[must_use]
-    pub fn from_uncompressed_unchecked(bytes: &[u8; 96]) -> CtOption<Self> {
-        <Self as UncompressedEncoding>::from_uncompressed_unchecked(&G1Uncompressed(*bytes))
     }
 
     /// Returns true if this element is the identity.
@@ -604,7 +476,9 @@ impl UncompressedEncoding for G1Affine {
     }
 
     fn to_uncompressed(&self) -> Self::Uncompressed {
-        G1Uncompressed(G1Affine::to_uncompressed(self))
+        let mut out = [0u8; 96];
+        unsafe { ::blst::blst_p1_affine_serialize(out.as_mut_ptr(), &raw const self.0) };
+        G1Uncompressed(out)
     }
 }
 
@@ -733,52 +607,11 @@ impl G1Projective {
         }
     }
 
-    /// Computes the doubling of this point.
-    #[must_use]
-    pub fn double(&self) -> Self {
-        let mut out = ::blst::blst_p1::default();
-        unsafe { ::blst::blst_p1_double(&raw mut out, &raw const self.0) };
-        Self(out)
-    }
-
-    /// Adds this point to another projective point.
-    #[must_use]
-    pub fn add(&self, rhs: &Self) -> Self {
-        let mut out = ::blst::blst_p1::default();
-        unsafe { ::blst::blst_p1_add_or_double(&raw mut out, &raw const self.0, &raw const rhs.0) };
-        Self(out)
-    }
-
-    /// Adds this point to an affine point.
-    #[must_use]
-    pub fn add_mixed(&self, rhs: &G1Affine) -> Self {
-        let mut out = ::blst::blst_p1::default();
-        unsafe {
-            ::blst::blst_p1_add_or_double_affine(&raw mut out, &raw const self.0, &raw const rhs.0);
-        }
-        Self(out)
-    }
-
-    /// Clears the cofactor by delegating to the dusk reference implementation.
-    #[must_use]
-    pub fn clear_cofactor(&self) -> Self {
-        let dusk_point =
-            dusk_bls12_381::G1Projective::from(dusk_g1_affine_from_blst(&G1Affine::from(self)));
-        blst_g1_projective_from_dusk(&dusk_point.clear_cofactor())
-    }
-
     /// Returns true if this element is the identity.
     #[must_use]
     pub fn is_identity(&self) -> Choice {
         let inf = unsafe { ::blst::blst_p1_is_inf(&raw const self.0) };
         Choice::from(inf as u8)
-    }
-
-    /// Returns true if this point is on the curve.
-    #[must_use]
-    pub fn is_on_curve(&self) -> Choice {
-        let on_curve = unsafe { ::blst::blst_p1_on_curve(&raw const self.0) };
-        Choice::from(on_curve as u8)
     }
 }
 
@@ -1075,7 +908,9 @@ impl Group for G1Projective {
     }
 
     fn double(&self) -> Self {
-        self.double()
+        let mut out = ::blst::blst_p1::default();
+        unsafe { ::blst::blst_p1_double(&raw mut out, &raw const self.0) };
+        Self(out)
     }
 }
 
@@ -1237,44 +1072,6 @@ impl G2Affine {
             read_raw_limbs(&raw[144..yc1_end], out.y.fp[1].l.iter_mut());
         }
         Self(out)
-    }
-
-    /// Serializes this element into compressed form.
-    #[must_use]
-    pub fn to_compressed(&self) -> [u8; 96] {
-        <Self as Serializable<96>>::to_bytes(self)
-    }
-
-    /// Serializes this element into uncompressed canonical form.
-    #[must_use]
-    pub fn to_uncompressed(&self) -> [u8; 192] {
-        let mut out = [0u8; 192];
-        unsafe { ::blst::blst_p2_affine_serialize(out.as_mut_ptr(), &raw const self.0) };
-        out
-    }
-
-    /// Attempts to deserialize a compressed element.
-    #[must_use]
-    pub fn from_compressed(bytes: &[u8; 96]) -> CtOption<Self> {
-        <Self as GroupEncoding>::from_bytes(&G2Compressed(*bytes))
-    }
-
-    /// Attempts to deserialize a compressed element without subgroup checks.
-    #[must_use]
-    pub fn from_compressed_unchecked(bytes: &[u8; 96]) -> CtOption<Self> {
-        <Self as GroupEncoding>::from_bytes_unchecked(&G2Compressed(*bytes))
-    }
-
-    /// Attempts to deserialize an uncompressed element.
-    #[must_use]
-    pub fn from_uncompressed(bytes: &[u8; 192]) -> CtOption<Self> {
-        <Self as UncompressedEncoding>::from_uncompressed(&G2Uncompressed(*bytes))
-    }
-
-    /// Attempts to deserialize an uncompressed element without subgroup checks.
-    #[must_use]
-    pub fn from_uncompressed_unchecked(bytes: &[u8; 192]) -> CtOption<Self> {
-        <Self as UncompressedEncoding>::from_uncompressed_unchecked(&G2Uncompressed(*bytes))
     }
 
     /// Returns true if this element is the identity.
@@ -1655,52 +1452,11 @@ impl G2Projective {
         }
     }
 
-    /// Computes the doubling of this point.
-    #[must_use]
-    pub fn double(&self) -> Self {
-        let mut out = ::blst::blst_p2::default();
-        unsafe { ::blst::blst_p2_double(&raw mut out, &raw const self.0) };
-        Self(out)
-    }
-
-    /// Adds this point to another projective point.
-    #[must_use]
-    pub fn add(&self, rhs: &Self) -> Self {
-        let mut out = ::blst::blst_p2::default();
-        unsafe { ::blst::blst_p2_add_or_double(&raw mut out, &raw const self.0, &raw const rhs.0) };
-        Self(out)
-    }
-
-    /// Adds this point to an affine point.
-    #[must_use]
-    pub fn add_mixed(&self, rhs: &G2Affine) -> Self {
-        let mut out = ::blst::blst_p2::default();
-        unsafe {
-            ::blst::blst_p2_add_or_double_affine(&raw mut out, &raw const self.0, &raw const rhs.0);
-        }
-        Self(out)
-    }
-
-    /// Clears the cofactor by delegating to the dusk reference implementation.
-    #[must_use]
-    pub fn clear_cofactor(&self) -> Self {
-        let dusk_point =
-            dusk_bls12_381::G2Projective::from(dusk_g2_affine_from_blst(&G2Affine::from(self)));
-        blst_g2_projective_from_dusk(&dusk_point.clear_cofactor())
-    }
-
     /// Returns true if this element is the identity.
     #[must_use]
     pub fn is_identity(&self) -> Choice {
         let inf = unsafe { ::blst::blst_p2_is_inf(&raw const self.0) };
         Choice::from(inf as u8)
-    }
-
-    /// Returns true if this point is on the curve.
-    #[must_use]
-    pub fn is_on_curve(&self) -> Choice {
-        let on_curve = unsafe { ::blst::blst_p2_on_curve(&raw const self.0) };
-        Choice::from(on_curve as u8)
     }
 }
 
@@ -1996,7 +1752,9 @@ impl Group for G2Projective {
     }
 
     fn double(&self) -> Self {
-        self.double()
+        let mut out = ::blst::blst_p2::default();
+        unsafe { ::blst::blst_p2_double(&raw mut out, &raw const self.0) };
+        Self(out)
     }
 }
 
@@ -2088,9 +1846,8 @@ impl ::zeroize::Zeroize for G2Projective {
 
 /// Prepared G2 element for pairing.
 ///
-/// In blst the miller-loop already operates on affine points, so this is
-/// essentially a thin wrapper. Its raw-byte and serde representations mirror
-/// the underlying affine point instead of dusk's precomputed Miller coefficients.
+/// In the blst backend this is a thin affine wrapper used only to drive
+/// pairing operations.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct G2Prepared(pub(crate) ::blst::blst_p2_affine);
 
@@ -2103,27 +1860,6 @@ impl From<G2Affine> for G2Prepared {
 impl From<&G2Affine> for G2Prepared {
     fn from(p: &G2Affine) -> Self {
         Self::from(*p)
-    }
-}
-
-impl G2Prepared {
-    /// Size of the raw representation.
-    pub const RAW_SIZE: usize = G2Affine::RAW_SIZE;
-
-    /// Serialize to the raw affine representation used by the blst backend.
-    #[must_use]
-    pub fn to_raw_bytes(&self) -> [u8; Self::RAW_SIZE] {
-        G2Affine(self.0).to_raw_bytes()
-    }
-
-    /// Create a prepared element from the raw affine representation.
-    ///
-    /// # Safety
-    /// The caller must guarantee that `bytes` contains a valid raw G2 affine
-    /// encoding produced by this backend.
-    #[must_use]
-    pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
-        Self(unsafe { G2Affine::from_slice_unchecked(bytes) }.0)
     }
 }
 
@@ -2141,33 +1877,6 @@ impl Gt {
     pub fn identity() -> Self {
         Self(unsafe { *::blst::blst_fp12_one() })
     }
-
-    /// Doubles this group element in additive notation.
-    #[must_use]
-    pub fn double(&self) -> Self {
-        let mut out = ::blst::blst_fp12::default();
-        unsafe { ::blst::blst_fp12_sqr(&raw mut out, &raw const self.0) };
-        Self(out)
-    }
-
-    fn add_group_element(&self, rhs: &Self) -> Self {
-        Self(self.0 * rhs.0)
-    }
-
-    fn mul_scalar(&self, rhs: &BlsScalar) -> Self {
-        let mut acc = Self::identity();
-        for bit in rhs
-            .to_bytes()
-            .iter()
-            .rev()
-            .flat_map(|byte| (0..8).rev().map(move |i| Choice::from((byte >> i) & 1u8)))
-            .skip(1)
-        {
-            acc = acc.double();
-            acc = Self::conditional_select(&acc, &acc.add_group_element(self), bit);
-        }
-        acc
-    }
 }
 
 impl Default for Gt {
@@ -2182,196 +1891,11 @@ impl fmt::Debug for Gt {
     }
 }
 
-impl fmt::Display for Gt {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl ConstantTimeEq for Gt {
-    fn ct_eq(&self, other: &Self) -> Choice {
-        self.0.to_bendian().ct_eq(&other.0.to_bendian())
-    }
-}
-
-impl ConditionallySelectable for Gt {
-    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
-        Self(conditional_select_fp12(&a.0, &b.0, choice))
-    }
-}
-
 impl Eq for Gt {}
 
 impl PartialEq for Gt {
     fn eq(&self, other: &Self) -> bool {
-        bool::from(self.ct_eq(other))
-    }
-}
-
-impl Neg for &Gt {
-    type Output = Gt;
-
-    fn neg(self) -> Gt {
-        let mut out = self.0;
-        unsafe { ::blst::blst_fp12_conjugate(&raw mut out) };
-        Gt(out)
-    }
-}
-
-impl Neg for Gt {
-    type Output = Gt;
-
-    fn neg(self) -> Gt {
-        -&self
-    }
-}
-
-impl Add for Gt {
-    type Output = Gt;
-
-    fn add(self, rhs: Gt) -> Gt {
-        self.add_group_element(&rhs)
-    }
-}
-
-impl AddAssign for Gt {
-    fn add_assign(&mut self, rhs: Gt) {
-        *self = *self + rhs;
-    }
-}
-
-impl Sub for Gt {
-    type Output = Gt;
-
-    fn sub(self, rhs: Gt) -> Gt {
-        self + (-rhs)
-    }
-}
-
-impl SubAssign for Gt {
-    fn sub_assign(&mut self, rhs: Gt) {
-        *self = *self - rhs;
-    }
-}
-
-impl_ref_binops!(Add, add, Gt, Gt, Gt);
-impl_ref_binops!(Sub, sub, Gt, Gt, Gt);
-
-impl Add<&Gt> for Gt {
-    type Output = Gt;
-
-    fn add(self, rhs: &Gt) -> Gt {
-        self + *rhs
-    }
-}
-
-impl Sub<&Gt> for Gt {
-    type Output = Gt;
-
-    fn sub(self, rhs: &Gt) -> Gt {
-        self - *rhs
-    }
-}
-
-impl AddAssign<&Gt> for Gt {
-    fn add_assign(&mut self, rhs: &Gt) {
-        *self = *self + *rhs;
-    }
-}
-
-impl SubAssign<&Gt> for Gt {
-    fn sub_assign(&mut self, rhs: &Gt) {
-        *self = *self - *rhs;
-    }
-}
-
-impl Mul<&BlsScalar> for &Gt {
-    type Output = Gt;
-
-    fn mul(self, rhs: &BlsScalar) -> Gt {
-        self.mul_scalar(rhs)
-    }
-}
-
-impl Mul<BlsScalar> for Gt {
-    type Output = Gt;
-
-    fn mul(self, rhs: BlsScalar) -> Gt {
-        self.mul_scalar(&rhs)
-    }
-}
-
-impl Mul<&BlsScalar> for Gt {
-    type Output = Gt;
-
-    fn mul(self, rhs: &BlsScalar) -> Gt {
-        self.mul_scalar(rhs)
-    }
-}
-
-impl Mul<BlsScalar> for &Gt {
-    type Output = Gt;
-
-    fn mul(self, rhs: BlsScalar) -> Gt {
-        self.mul_scalar(&rhs)
-    }
-}
-
-impl MulAssign<BlsScalar> for Gt {
-    fn mul_assign(&mut self, rhs: BlsScalar) {
-        *self = *self * rhs;
-    }
-}
-
-impl MulAssign<&BlsScalar> for Gt {
-    fn mul_assign(&mut self, rhs: &BlsScalar) {
-        *self = *self * *rhs;
-    }
-}
-
-impl<T> Sum<T> for Gt
-where
-    T: Borrow<Gt>,
-{
-    fn sum<I>(iter: I) -> Self
-    where
-        I: Iterator<Item = T>,
-    {
-        iter.fold(Self::identity(), |acc, item| acc + item.borrow())
-    }
-}
-
-impl Group for Gt {
-    type Scalar = BlsScalar;
-
-    fn random(mut rng: impl RngCore) -> Self {
-        loop {
-            let mut wide = [0u8; 64];
-            rng.fill_bytes(&mut wide);
-            let scalar = Scalar::from_bytes_wide(&wide);
-            if scalar != Scalar::zero() {
-                return Self::generator() * scalar;
-            }
-        }
-    }
-
-    fn identity() -> Self {
-        Self::identity()
-    }
-
-    fn generator() -> Self {
-        let g1 = G1Affine::generator();
-        let g2 = G2Affine::generator();
-        let prepared = G2Prepared::from(g2);
-        multi_miller_loop_result(&[(&g1, &prepared)])
-    }
-
-    fn is_identity(&self) -> Choice {
-        self.ct_eq(&Self::identity())
-    }
-
-    fn double(&self) -> Self {
-        self.double()
+        bool::from(self.0.to_bendian().ct_eq(&other.0.to_bendian()))
     }
 }
 
@@ -2391,37 +1915,11 @@ impl fmt::Debug for MillerLoopResult {
     }
 }
 
-impl ConditionallySelectable for MillerLoopResult {
-    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
-        Self(conditional_select_fp12(&a.0, &b.0, choice))
-    }
-}
-
 impl MillerLoopResult {
     /// Perform the final exponentiation to obtain a Gt element.
     #[must_use]
     pub fn final_exponentiation(&self) -> Gt {
         Gt(self.0.final_exp())
-    }
-}
-
-#[cfg(feature = "zeroize")]
-impl ::zeroize::Zeroize for Gt {
-    fn zeroize(&mut self) {
-        let ptr = &mut self.0 as *mut ::blst::blst_fp12 as *mut u8;
-        let len = core::mem::size_of::<::blst::blst_fp12>();
-        unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-        *self = Self::identity();
-    }
-}
-
-#[cfg(feature = "zeroize")]
-impl ::zeroize::Zeroize for MillerLoopResult {
-    fn zeroize(&mut self) {
-        let ptr = &mut self.0 as *mut ::blst::blst_fp12 as *mut u8;
-        let len = core::mem::size_of::<::blst::blst_fp12>();
-        unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-        *self = Self::default();
     }
 }
 
@@ -2474,21 +1972,6 @@ mod serde_support {
             let bytes = decode_hex::<D, 96>(deserializer)?;
             <Self as dusk_bytes::Serializable<96>>::from_bytes(&bytes)
                 .map_err(|err| SerdeError::custom(format!("{err:?}")))
-        }
-    }
-
-    impl Serialize for G2Prepared {
-        fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-            hex::encode(dusk_bytes::Serializable::to_bytes(&G2Affine(self.0))).serialize(serializer)
-        }
-    }
-
-    impl<'de> Deserialize<'de> for G2Prepared {
-        fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-            let bytes = decode_hex::<D, 96>(deserializer)?;
-            let affine = <G2Affine as dusk_bytes::Serializable<96>>::from_bytes(&bytes)
-                .map_err(|err| SerdeError::custom(format!("{err:?}")))?;
-            Ok(Self::from(affine))
         }
     }
 }
@@ -2663,42 +2146,6 @@ mod tests {
         );
         let blst_double = G2Affine::from(G2Projective::generator() + G2Projective::generator());
         assert_eq!(blst_double.to_raw_bytes(), dusk_double.to_raw_bytes());
-    }
-
-    #[test]
-    fn g2_prepared_raw_roundtrip() {
-        let prepared = G2Prepared::from(G2Affine::generator());
-        let raw = prepared.to_raw_bytes();
-        let decoded = unsafe { G2Prepared::from_slice_unchecked(&raw) };
-        assert_eq!(G2Affine(decoded.0), G2Affine::generator());
-    }
-
-    #[test]
-    fn g1_affine_inherent_encoding_matches_traits() {
-        let g = G1Affine::generator();
-        let compressed = g.to_compressed();
-        let uncompressed = g.to_uncompressed();
-        assert_eq!(compressed, <G1Affine as Serializable<48>>::to_bytes(&g));
-        assert_eq!(
-            uncompressed,
-            <G1Affine as UncompressedEncoding>::to_uncompressed(&g).0
-        );
-        assert_eq!(G1Affine::from_compressed(&compressed).unwrap(), g);
-        assert_eq!(G1Affine::from_uncompressed(&uncompressed).unwrap(), g);
-    }
-
-    #[test]
-    fn g2_affine_inherent_encoding_matches_traits() {
-        let g = G2Affine::generator();
-        let compressed = g.to_compressed();
-        let uncompressed = g.to_uncompressed();
-        assert_eq!(compressed, <G2Affine as Serializable<96>>::to_bytes(&g));
-        assert_eq!(
-            uncompressed,
-            <G2Affine as UncompressedEncoding>::to_uncompressed(&g).0
-        );
-        assert_eq!(G2Affine::from_compressed(&compressed).unwrap(), g);
-        assert_eq!(G2Affine::from_uncompressed(&uncompressed).unwrap(), g);
     }
 
     #[test]
@@ -2887,42 +2334,21 @@ mod tests {
     }
 
     #[test]
-    fn cofactor_and_validation_methods_match_expectations() {
-        let g1 = G1Projective::generator();
-        let g2 = G2Projective::generator();
+    fn affine_validation_methods_match_expectations() {
         assert!(bool::from(G1Affine::generator().is_on_curve()));
         assert!(bool::from(G1Affine::generator().is_torsion_free()));
-        assert!(bool::from(g1.is_on_curve()));
-        let dusk_g1 = dusk_bls12_381::G1Projective::generator();
-        let dusk_g1_cleared = dusk_bls12_381::G1Affine::from(dusk_g1.clear_cofactor());
-        assert_eq!(
-            G1Affine::from(g1.clear_cofactor()),
-            blst_g1_affine_from_dusk(&dusk_g1_cleared)
-        );
-
         assert!(bool::from(G2Affine::generator().is_on_curve()));
         assert!(bool::from(G2Affine::generator().is_torsion_free()));
-        assert!(bool::from(g2.is_on_curve()));
-        let dusk_g2 = dusk_bls12_381::G2Projective::generator();
-        let dusk_g2_cleared = dusk_bls12_381::G2Affine::from(dusk_g2.clear_cofactor());
-        assert_eq!(
-            G2Affine::from(g2.clear_cofactor()),
-            blst_g2_affine_from_dusk(&dusk_g2_cleared)
-        );
     }
 
     #[test]
-    fn gt_group_surface_works() {
+    fn pairing_result_compares_against_identity() {
         let g1 = G1Affine::generator();
         let g2 = G2Affine::generator();
         let prepared = G2Prepared::from(g2);
         let gt = multi_miller_loop_result(&[(&g1, &prepared)]);
-        assert_eq!(gt + (-gt), Gt::identity());
-        assert_eq!(&gt + &gt, gt.double());
-        assert_eq!(gt * BlsScalar::from(2u64), gt + gt);
-
-        let sum: Gt = [gt, gt].into_iter().sum();
-        assert_eq!(sum, gt + gt);
+        assert_ne!(gt, Gt::identity());
+        assert_eq!(multi_miller_loop_result(&[]), Gt::identity());
     }
 
     #[cfg(feature = "serde")]
@@ -2930,19 +2356,15 @@ mod tests {
     fn serde_roundtrips_blst_types() {
         let g1 = G1Affine::generator();
         let g2 = G2Affine::generator();
-        let prepared = G2Prepared::from(g2);
 
         let g1_json = serde_json::to_string(&g1).unwrap();
         let g2_json = serde_json::to_string(&g2).unwrap();
-        let prepared_json = serde_json::to_string(&prepared).unwrap();
 
         let g1_back: G1Affine = serde_json::from_str(&g1_json).unwrap();
         let g2_back: G2Affine = serde_json::from_str(&g2_json).unwrap();
-        let prepared_back: G2Prepared = serde_json::from_str(&prepared_json).unwrap();
 
         assert_eq!(g1, g1_back);
         assert_eq!(g2, g2_back);
-        assert_eq!(G2Affine(prepared_back.0), g2);
     }
 
     #[test]

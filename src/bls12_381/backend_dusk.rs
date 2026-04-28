@@ -6,6 +6,9 @@
 
 use alloc::vec::Vec;
 
+// This backend forwards the upstream dusk types directly. The stable
+// backend-portable contract lives in `crate::bls12_381`; any extra inherent
+// methods reachable here should be treated as dusk-specific surface.
 pub use dusk_bls12_381::{
     BlsScalar, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, GENERATOR, Gt,
     ROOT_OF_UNITY, TWO_ADACITY,
