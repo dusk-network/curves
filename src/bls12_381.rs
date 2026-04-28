@@ -46,7 +46,7 @@ use backend_dusk as backend;
 /// Re-export the backend-agnostic BLS12-381 primitives through `dusk-curves`.
 ///
 /// Only items that exist identically in both backends are listed here.
-/// Backend-internal helpers (`BlstG*` structs, `multi_miller_loop`,
+/// Backend-internal helpers (`multi_miller_loop`,
 /// `MillerLoopResult`, `multiscalar_mul` mod) are intentionally absent.
 pub use backend::{
     BlsScalar, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, GENERATOR, Gt,
