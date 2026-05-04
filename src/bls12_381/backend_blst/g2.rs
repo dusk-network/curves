@@ -1116,19 +1116,22 @@ mod tests {
         let generator = G2Projective::generator();
         let a = generator + generator;
         let b = generator * BlsScalar::from(5u64);
+        let sel_a = G2Projective::conditional_select(&a, &b, Choice::from(0));
+        let sel_b = G2Projective::conditional_select(&a, &b, Choice::from(1));
 
-        assert_eq!(G2Projective::conditional_select(&a, &b, Choice::from(0)), a);
-        assert_eq!(G2Projective::conditional_select(&a, &b, Choice::from(1)), b);
+        assert_ne!(a, b);
+        assert_eq!(sel_a, a);
+        assert_eq!(sel_b, b);
+        assert_ne!(sel_a, sel_b);
 
         let a_affine = G2Affine::from(a);
         let b_affine = G2Affine::from(b);
-        assert_eq!(
-            G2Affine::conditional_select(&a_affine, &b_affine, Choice::from(0)),
-            a_affine
-        );
-        assert_eq!(
-            G2Affine::conditional_select(&a_affine, &b_affine, Choice::from(1)),
-            b_affine
-        );
+        let sel_a_affine = G2Affine::conditional_select(&a_affine, &b_affine, Choice::from(0));
+        let sel_b_affine = G2Affine::conditional_select(&a_affine, &b_affine, Choice::from(1));
+
+        assert_ne!(a_affine, b_affine);
+        assert_eq!(sel_a_affine, a_affine);
+        assert_eq!(sel_b_affine, b_affine);
+        assert_ne!(sel_a_affine, sel_b_affine);
     }
 }
