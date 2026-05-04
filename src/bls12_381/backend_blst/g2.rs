@@ -286,13 +286,20 @@ impl ConstantTimeEq for G2Affine {
 
 impl ConditionallySelectable for G2Affine {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
-        let a_bytes = <Self as Serializable<96>>::to_bytes(a);
-        let b_bytes = <Self as Serializable<96>>::to_bytes(b);
-        let mut sel = [0u8; 96];
-        for i in 0..96 {
-            sel[i] = u8::conditional_select(&a_bytes[i], &b_bytes[i], choice);
+        // Select directly on the inner Montgomery-form Fp2 limbs — no
+        // compression, decompression, or subgroup re-check needed.
+        let mut out = ::blst::blst_p2_affine::default();
+        for i in 0..6 {
+            out.x.fp[0].l[i] =
+                u64::conditional_select(&a.0.x.fp[0].l[i], &b.0.x.fp[0].l[i], choice);
+            out.x.fp[1].l[i] =
+                u64::conditional_select(&a.0.x.fp[1].l[i], &b.0.x.fp[1].l[i], choice);
+            out.y.fp[0].l[i] =
+                u64::conditional_select(&a.0.y.fp[0].l[i], &b.0.y.fp[0].l[i], choice);
+            out.y.fp[1].l[i] =
+                u64::conditional_select(&a.0.y.fp[1].l[i], &b.0.y.fp[1].l[i], choice);
         }
-        <Self as Serializable<96>>::from_bytes(&sel).unwrap_or_else(|_| Self::identity())
+        Self(out)
     }
 }
 
@@ -708,11 +715,24 @@ impl ConstantTimeEq for G2Projective {
 
 impl ConditionallySelectable for G2Projective {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
-        Self::from(G2Affine::conditional_select(
-            &G2Affine::from(*a),
-            &G2Affine::from(*b),
-            choice,
-        ))
+        // Select directly on the projective (X, Y, Z) Fp2 limbs; avoids the
+        // two blst_p2_to_affine calls the affine-delegate path would incur.
+        let mut out = ::blst::blst_p2::default();
+        for i in 0..6 {
+            out.x.fp[0].l[i] =
+                u64::conditional_select(&a.0.x.fp[0].l[i], &b.0.x.fp[0].l[i], choice);
+            out.x.fp[1].l[i] =
+                u64::conditional_select(&a.0.x.fp[1].l[i], &b.0.x.fp[1].l[i], choice);
+            out.y.fp[0].l[i] =
+                u64::conditional_select(&a.0.y.fp[0].l[i], &b.0.y.fp[0].l[i], choice);
+            out.y.fp[1].l[i] =
+                u64::conditional_select(&a.0.y.fp[1].l[i], &b.0.y.fp[1].l[i], choice);
+            out.z.fp[0].l[i] =
+                u64::conditional_select(&a.0.z.fp[0].l[i], &b.0.z.fp[0].l[i], choice);
+            out.z.fp[1].l[i] =
+                u64::conditional_select(&a.0.z.fp[1].l[i], &b.0.z.fp[1].l[i], choice);
+        }
+        Self(out)
     }
 }
 
@@ -1065,5 +1085,29 @@ mod tests {
         let bb = G2Affine::generator();
         assert_eq!(&aa + &bb, aa + bb);
         assert_eq!(&aa - &bb, aa - bb);
+    }
+
+    #[test]
+    fn g2_affine_conditional_select_choice_0_returns_a() {
+        let a = G2Affine::generator();
+        let b = G2Affine::identity();
+        let sel = G2Affine::conditional_select(&a, &b, Choice::from(0));
+        assert_eq!(sel, a);
+    }
+
+    #[test]
+    fn g2_affine_conditional_select_choice_1_returns_b() {
+        let a = G2Affine::generator();
+        let b = G2Affine::identity();
+        let sel = G2Affine::conditional_select(&a, &b, Choice::from(1));
+        assert_eq!(sel, b);
+    }
+
+    #[test]
+    fn g2_projective_conditional_select() {
+        let a = G2Projective::generator();
+        let b = G2Projective::identity();
+        assert_eq!(G2Projective::conditional_select(&a, &b, Choice::from(0)), a);
+        assert_eq!(G2Projective::conditional_select(&a, &b, Choice::from(1)), b);
     }
 }

@@ -271,14 +271,14 @@ impl ConstantTimeEq for G1Affine {
 
 impl ConditionallySelectable for G1Affine {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
-        let a_bytes = <Self as Serializable<48>>::to_bytes(a);
-        let b_bytes = <Self as Serializable<48>>::to_bytes(b);
-        let mut sel = [0u8; 48];
-        for i in 0..48 {
-            sel[i] = u8::conditional_select(&a_bytes[i], &b_bytes[i], choice);
+        // Select directly on the inner Montgomery-form limbs — no
+        // compression, decompression, or subgroup re-check needed.
+        let mut out = ::blst::blst_p1_affine::default();
+        for i in 0..6 {
+            out.x.l[i] = u64::conditional_select(&a.0.x.l[i], &b.0.x.l[i], choice);
+            out.y.l[i] = u64::conditional_select(&a.0.y.l[i], &b.0.y.l[i], choice);
         }
-        // from_bytes performs subgroup check; fall back to identity on error.
-        <Self as Serializable<48>>::from_bytes(&sel).unwrap_or_else(|_| Self::identity())
+        Self(out)
     }
 }
 
@@ -697,11 +697,15 @@ impl ConstantTimeEq for G1Projective {
 
 impl ConditionallySelectable for G1Projective {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
-        G1Projective::from(G1Affine::conditional_select(
-            &G1Affine::from(*a),
-            &G1Affine::from(*b),
-            choice,
-        ))
+        // Select directly on the projective (X, Y, Z) limbs; avoids the
+        // two blst_p1_to_affine calls the affine-delegate path would incur.
+        let mut out = ::blst::blst_p1::default();
+        for i in 0..6 {
+            out.x.l[i] = u64::conditional_select(&a.0.x.l[i], &b.0.x.l[i], choice);
+            out.y.l[i] = u64::conditional_select(&a.0.y.l[i], &b.0.y.l[i], choice);
+            out.z.l[i] = u64::conditional_select(&a.0.z.l[i], &b.0.z.l[i], choice);
+        }
+        Self(out)
     }
 }
 
@@ -1032,5 +1036,29 @@ mod tests {
         let result = msm_variable_base(&[g], &[two]);
         let expected = G1Projective::from(g) + G1Projective::from(g);
         assert_eq!(G1Affine::from(result), G1Affine::from(expected));
+    }
+
+    #[test]
+    fn g1_affine_conditional_select_choice_0_returns_a() {
+        let a = G1Affine::generator();
+        let b = G1Affine::identity();
+        let sel = G1Affine::conditional_select(&a, &b, Choice::from(0));
+        assert_eq!(sel, a);
+    }
+
+    #[test]
+    fn g1_affine_conditional_select_choice_1_returns_b() {
+        let a = G1Affine::generator();
+        let b = G1Affine::identity();
+        let sel = G1Affine::conditional_select(&a, &b, Choice::from(1));
+        assert_eq!(sel, b);
+    }
+
+    #[test]
+    fn g1_projective_conditional_select() {
+        let a = G1Projective::generator();
+        let b = G1Projective::identity();
+        assert_eq!(G1Projective::conditional_select(&a, &b, Choice::from(0)), a);
+        assert_eq!(G1Projective::conditional_select(&a, &b, Choice::from(1)), b);
     }
 }
