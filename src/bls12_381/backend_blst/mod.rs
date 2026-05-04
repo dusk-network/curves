@@ -141,6 +141,31 @@ impl AsMut<[u8]> for G2Uncompressed {
     }
 }
 
+// ── Shared reference-operator macro ─────────────────────────────────────────
+//
+// Generates `impl Trait<Rhs> for &Lhs` and `impl Trait<&Rhs> for &Lhs` by
+// delegating to the by-value impl.
+
+macro_rules! impl_ref_binops {
+    ($trait:ident, $fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
+        impl $trait<$rhs> for &$lhs {
+            type Output = $out;
+
+            fn $fn(self, rhs: $rhs) -> Self::Output {
+                (*self).$fn(rhs)
+            }
+        }
+
+        impl $trait<&$rhs> for &$lhs {
+            type Output = $out;
+
+            fn $fn(self, rhs: &$rhs) -> Self::Output {
+                (*self).$fn(*rhs)
+            }
+        }
+    };
+}
+
 // ── Submodules ───────────────────────────────────────────────────────────────
 
 mod g1;

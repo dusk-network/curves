@@ -19,31 +19,6 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use super::{BlsScalar, G1Compressed, G1Uncompressed};
 
-// ── Shared reference-operator macro ─────────────────────────────────────────
-//
-// Generates `impl Trait<Rhs> for &Lhs` and `impl Trait<&Rhs> for &Lhs` by
-// delegating to the by-value impl.
-
-macro_rules! impl_ref_binops {
-    ($trait:ident, $fn:ident, $lhs:ty, $rhs:ty, $out:ty) => {
-        impl $trait<$rhs> for &$lhs {
-            type Output = $out;
-
-            fn $fn(self, rhs: $rhs) -> Self::Output {
-                (*self).$fn(rhs)
-            }
-        }
-
-        impl $trait<&$rhs> for &$lhs {
-            type Output = $out;
-
-            fn $fn(self, rhs: &$rhs) -> Self::Output {
-                (*self).$fn(*rhs)
-            }
-        }
-    };
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
 //  G1Affine
 // ═══════════════════════════════════════════════════════════════════════════════
