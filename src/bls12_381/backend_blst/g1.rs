@@ -98,6 +98,51 @@ impl G1Affine {
         let on_curve = unsafe { ::blst::blst_p1_affine_on_curve(&raw const self.0) };
         Choice::from(on_curve as u8)
     }
+
+    /// Serialize this element into compressed form (48 bytes).
+    ///
+    /// Mirrors `dusk_bls12_381::G1Affine::to_compressed`. Equivalent to
+    /// `<G1Affine as dusk_bytes::Serializable<48>>::to_bytes(self)` and to
+    /// `<G1Affine as group::GroupEncoding>::to_bytes(self).0`.
+    #[must_use]
+    pub fn to_compressed(&self) -> [u8; 48] {
+        <Self as Serializable<48>>::to_bytes(self)
+    }
+
+    /// Serialize this element into uncompressed canonical form (96 bytes).
+    #[must_use]
+    pub fn to_uncompressed(&self) -> [u8; 96] {
+        let mut out = [0u8; 96];
+        unsafe { ::blst::blst_p1_affine_serialize(out.as_mut_ptr(), &raw const self.0) };
+        out
+    }
+
+    /// Attempt to deserialize a compressed element. Performs both on-curve and
+    /// subgroup-membership checks; matches the safe `dusk_bls12_381` API.
+    #[must_use]
+    pub fn from_compressed(bytes: &[u8; 48]) -> CtOption<Self> {
+        <Self as GroupEncoding>::from_bytes(&G1Compressed(*bytes))
+    }
+
+    /// Attempt to deserialize a compressed element without subgroup checks.
+    /// Caller is responsible for any subgroup validation needed.
+    #[must_use]
+    pub fn from_compressed_unchecked(bytes: &[u8; 48]) -> CtOption<Self> {
+        <Self as GroupEncoding>::from_bytes_unchecked(&G1Compressed(*bytes))
+    }
+
+    /// Attempt to deserialize an uncompressed element. Performs both on-curve
+    /// and subgroup-membership checks.
+    #[must_use]
+    pub fn from_uncompressed(bytes: &[u8; 96]) -> CtOption<Self> {
+        <Self as UncompressedEncoding>::from_uncompressed(&G1Uncompressed(*bytes))
+    }
+
+    /// Attempt to deserialize an uncompressed element without subgroup checks.
+    #[must_use]
+    pub fn from_uncompressed_unchecked(bytes: &[u8; 96]) -> CtOption<Self> {
+        <Self as UncompressedEncoding>::from_uncompressed_unchecked(&G1Uncompressed(*bytes))
+    }
 }
 
 // -- Serializable (compressed, 48 bytes) ------------------------------------
@@ -467,6 +512,39 @@ impl G1Projective {
         Choice::from(inf as u8)
     }
 
+    /// Returns true if this point lies on the curve.
+    #[must_use]
+    pub fn is_on_curve(&self) -> Choice {
+        let on_curve = unsafe { ::blst::blst_p1_on_curve(&raw const self.0) };
+        Choice::from(on_curve as u8)
+    }
+
+    /// Compute the doubling of this point.
+    #[must_use]
+    pub fn double(&self) -> Self {
+        let mut out = ::blst::blst_p1::default();
+        unsafe { ::blst::blst_p1_double(&raw mut out, &raw const self.0) };
+        Self(out)
+    }
+
+    /// Add this point to another projective point.
+    #[must_use]
+    pub fn add(&self, rhs: &Self) -> Self {
+        let mut out = ::blst::blst_p1::default();
+        unsafe { ::blst::blst_p1_add_or_double(&raw mut out, &raw const self.0, &raw const rhs.0) };
+        Self(out)
+    }
+
+    /// Add this point to an affine point (mixed addition).
+    #[must_use]
+    pub fn add_mixed(&self, rhs: &G1Affine) -> Self {
+        let mut out = ::blst::blst_p1::default();
+        unsafe {
+            ::blst::blst_p1_add_or_double_affine(&raw mut out, &raw const self.0, &raw const rhs.0);
+        }
+        Self(out)
+    }
+
     /// Clears the cofactor, projecting an on-curve point onto the prime-order
     /// G1 subgroup.
     ///
@@ -792,9 +870,7 @@ impl Group for G1Projective {
     }
 
     fn double(&self) -> Self {
-        let mut out = ::blst::blst_p1::default();
-        unsafe { ::blst::blst_p1_double(&raw mut out, &raw const self.0) };
-        Self(out)
+        Self::double(self)
     }
 }
 
@@ -1131,5 +1207,35 @@ mod tests {
     fn g1_clear_cofactor_identity_is_identity() {
         let cleared = G1Projective::identity().clear_cofactor();
         assert!(bool::from(cleared.is_identity()));
+    }
+
+    #[test]
+    fn g1_affine_inherent_encoding_matches_traits() {
+        let g = G1Affine::generator();
+        let compressed = g.to_compressed();
+        let uncompressed = g.to_uncompressed();
+        assert_eq!(compressed, <G1Affine as Serializable<48>>::to_bytes(&g));
+        assert_eq!(
+            uncompressed,
+            <G1Affine as UncompressedEncoding>::to_uncompressed(&g).0
+        );
+        assert_eq!(G1Affine::from_compressed(&compressed).unwrap(), g);
+        assert_eq!(G1Affine::from_compressed_unchecked(&compressed).unwrap(), g);
+        assert_eq!(G1Affine::from_uncompressed(&uncompressed).unwrap(), g);
+        assert_eq!(
+            G1Affine::from_uncompressed_unchecked(&uncompressed).unwrap(),
+            g
+        );
+    }
+
+    #[test]
+    fn g1_projective_inherent_arithmetic_matches_trait_impl() {
+        let g = G1Projective::generator();
+        // Inherent double / add agree with their trait counterparts.
+        assert_eq!(g.double(), g + g);
+        assert_eq!(g.add(&g), g + g);
+        let g_aff = G1Affine::generator();
+        assert_eq!(g.add_mixed(&g_aff), g + G1Projective::from(g_aff));
+        assert!(bool::from(g.is_on_curve()));
     }
 }
