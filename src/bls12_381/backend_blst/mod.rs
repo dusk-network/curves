@@ -147,9 +147,9 @@ mod g1;
 mod g2;
 mod pairings;
 
-pub use g1::*;
-pub use g2::*;
-pub use pairings::*;
+pub use g1::{G1Affine, G1Projective, msm_variable_base};
+pub use g2::{G2Affine, G2Projective};
+pub use pairings::{G2Prepared, Gt, multi_miller_loop_result, pairing_product_is_identity};
 
 // ── Module-level scalar functions ────────────────────────────────────────────
 //
