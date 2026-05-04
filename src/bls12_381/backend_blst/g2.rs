@@ -484,6 +484,33 @@ impl G2Projective {
         let inf = unsafe { ::blst::blst_p2_is_inf(&raw const self.0) };
         Choice::from(inf as u8)
     }
+
+    /// Clears the cofactor, projecting an on-curve point onto the prime-order
+    /// G2 subgroup.
+    ///
+    /// The blst backend bridges through the canonical 192-byte IETF
+    /// uncompressed encoding to invoke `dusk_bls12_381::G2Projective::clear_cofactor`,
+    /// then re-decodes the cleared point. Bridging via uncompressed bytes is
+    /// required because the input may legitimately be on the curve but outside
+    /// the prime-order subgroup (e.g. the output of a hash-to-curve mapping),
+    /// and the dusk compressed `from_bytes` would reject such points. The
+    /// returned point is in the prime-order subgroup by construction.
+    ///
+    /// This delegation keeps both backends behaviourally identical for
+    /// security-sensitive constructions (BLS signatures, hash-to-curve)
+    /// without re-deriving the cofactor-clearing scalar in this crate.
+    #[must_use]
+    pub fn clear_cofactor(&self) -> Self {
+        let bytes = <G2Affine as UncompressedEncoding>::to_uncompressed(&G2Affine::from(*self));
+        let dusk_aff = dusk_bls12_381::G2Affine::from_uncompressed_unchecked(&bytes.0).unwrap();
+        let cleared = dusk_bls12_381::G2Projective::from(dusk_aff).clear_cofactor();
+        let cleared_bytes = dusk_bls12_381::G2Affine::from(cleared).to_uncompressed();
+        let blst_aff = <G2Affine as UncompressedEncoding>::from_uncompressed(
+            &super::G2Uncompressed(cleared_bytes),
+        )
+        .unwrap();
+        Self::from(blst_aff)
+    }
 }
 
 impl Default for G2Projective {
@@ -1133,5 +1160,21 @@ mod tests {
         assert_eq!(sel_a_affine, a_affine);
         assert_eq!(sel_b_affine, b_affine);
         assert_ne!(sel_a_affine, sel_b_affine);
+    }
+
+    #[test]
+    fn g2_clear_cofactor_matches_dusk() {
+        let blst_g = G2Projective::generator();
+        let dusk_g = dusk_bls12_381::G2Projective::generator();
+        let blst_cleared = G2Affine::from(blst_g.clear_cofactor());
+        let dusk_cleared = dusk_bls12_381::G2Affine::from(dusk_g.clear_cofactor());
+        assert_eq!(blst_cleared.to_raw_bytes(), dusk_cleared.to_raw_bytes());
+        assert!(bool::from(blst_cleared.is_torsion_free()));
+    }
+
+    #[test]
+    fn g2_clear_cofactor_identity_is_identity() {
+        let cleared = G2Projective::identity().clear_cofactor();
+        assert!(bool::from(cleared.is_identity()));
     }
 }
