@@ -29,7 +29,8 @@ If a change trades clarity or safety for cleverness, do not make it.
   public re-exports, and shared helper functions.
 - `src/bls12_381/backend_dusk.rs`: default pure-Rust backend built on
   `dusk-bls12_381`.
-- `src/bls12_381/backend_blst.rs`: blst-backed wrapper types and trait impls.
+- `src/bls12_381/backend_blst/`: blst-backed wrapper types and trait impls,
+  split across `mod.rs`, `g1.rs`, `g2.rs`, and `pairings.rs`.
 - `Makefile`: canonical local and CI commands.
 - `.github/workflows/dusk_ci.yml`: CI entrypoint; jobs should call `make`
   targets instead of hand-written cargo command lines.
@@ -107,7 +108,7 @@ operations may be used in sensitive contexts.
 
 ## Unsafe and FFI rules
 
-`backend_blst.rs` wraps an FFI library. Treat every unsafe change as
+`src/bls12_381/backend_blst/` wraps an FFI library. Treat every unsafe change as
 security-sensitive.
 
 - keep unsafe blocks as small as possible
@@ -120,7 +121,7 @@ security-sensitive.
 - do not assume all-zero or default representations are valid beyond the cases
   already verified against blst behavior and current code comments
 
-When touching wrapper semantics in `backend_blst.rs`, keep behavior explicit.
+When touching wrapper semantics in `src/bls12_381/backend_blst/`, keep behavior explicit.
 For example, projective equality should use blst equality helpers rather than
 opaque derives or raw field comparisons.
 
@@ -183,7 +184,7 @@ Targeted commands:
 - `backend_dusk.rs`: run at least `make clippy-dusk`; also run
   `make clippy-dusk-rkyv` or `make clippy-dusk-parallel` if those code paths are
   affected
-- `backend_blst.rs`: run at least `make clippy-blst` and `make test-blst`
+- `src/bls12_381/backend_blst/`: run at least `make clippy-blst` and `make test-blst`
 - serialization, decoding, equality, or pairing changes: run both backends and
   add targeted tests for malformed inputs, identity handling, and canonical
   round-trips when possible
