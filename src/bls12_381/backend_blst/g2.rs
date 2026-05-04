@@ -1110,4 +1110,25 @@ mod tests {
         assert_eq!(G2Projective::conditional_select(&a, &b, Choice::from(0)), a);
         assert_eq!(G2Projective::conditional_select(&a, &b, Choice::from(1)), b);
     }
+
+    #[test]
+    fn g2_conditional_select_non_identity_points() {
+        let generator = G2Projective::generator();
+        let a = generator + generator;
+        let b = generator * BlsScalar::from(5u64);
+
+        assert_eq!(G2Projective::conditional_select(&a, &b, Choice::from(0)), a);
+        assert_eq!(G2Projective::conditional_select(&a, &b, Choice::from(1)), b);
+
+        let a_affine = G2Affine::from(a);
+        let b_affine = G2Affine::from(b);
+        assert_eq!(
+            G2Affine::conditional_select(&a_affine, &b_affine, Choice::from(0)),
+            a_affine
+        );
+        assert_eq!(
+            G2Affine::conditional_select(&a_affine, &b_affine, Choice::from(1)),
+            b_affine
+        );
+    }
 }
