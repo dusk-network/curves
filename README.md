@@ -89,7 +89,7 @@ implement a consistent set of inherent convenience methods that match the
 | `G1Affine` / `G2Affine` | `to_compressed`, `to_uncompressed`, `from_compressed`, `from_compressed_unchecked`, `from_uncompressed`, `from_uncompressed_unchecked` |
 | `G1Projective` / `G2Projective` | `double`, `add`, `add_mixed`, `is_on_curve`, `clear_cofactor` |
 | `Gt` | `double`, `Add`/`Sub`/`Neg`/`Mul<BlsScalar>`, `Sum`, `group::Group` |
-| `G2Prepared` | `RAW_SIZE`, `to_raw_bytes`, unsafe `from_slice_unchecked` |
+| `G2Prepared` | `RAW_SIZE`, `to_raw_bytes`, unsafe `from_slice_unchecked` (`RAW_SIZE` and `to_raw_bytes` exist on both backends but their values are deliberately not portable across backends) |
 
 The default dusk backend forwards upstream `dusk-bls12_381` types directly, so
 a small number of additional inherent methods from that crate are still
