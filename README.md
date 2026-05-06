@@ -92,10 +92,13 @@ implement a consistent set of inherent convenience methods that match the
 | `G2Prepared` | `RAW_SIZE`, `to_raw_bytes`, unsafe `from_slice_unchecked` (`RAW_SIZE` and `to_raw_bytes` exist on both backends but their values are deliberately not portable across backends) |
 
 The default dusk backend forwards upstream `dusk-bls12_381` types directly, so
-a small number of additional inherent methods from that crate are still
-reachable there (e.g. `pairing()`, `MillerLoopResult::Add`). Treat those as
-dusk-specific extras; they are intentionally absent from the public facade in
-`src/bls12_381.rs`.
+a small number of additional inherent methods and external trait impls from
+that crate are still reachable there (e.g. `pairing()`,
+`MillerLoopResult::Add`, and `pairing::PairingCurveAffine` with
+`pairing_with()` / `Pair` / `PairingResult`). Treat those as dusk-specific
+extras; they are intentionally absent from the public facade in
+`src/bls12_381.rs`, and the blst backend does not currently implement the
+pairing crate's affine pairing traits.
 
 <details>
 <summary><strong><code>rkyv-impl</code> additions</strong> <em>(dusk backend only)</em></summary>

@@ -14,10 +14,10 @@
 //!
 //! The backend-portable contract is the surface explicitly re-exported or
 //! defined in this module. The default dusk backend forwards upstream
-//! `dusk_bls12_381` types directly, so some additional inherent methods may
-//! still be reachable there. Treat those dusk-only conveniences as backend
-//! specific: if code must compile against both backends, prefer the shared
-//! facade here and backend-parity methods only.
+//! `dusk_bls12_381` types directly, so some additional inherent methods and
+//! external trait impls may still be reachable there. Treat those dusk-only
+//! conveniences as backend specific: if code must compile against both
+//! backends, prefer the shared facade here and backend-parity methods only.
 
 #[cfg(all(feature = "bls-backend-dusk", feature = "bls-backend-blst"))]
 compile_error!("features 'bls-backend-dusk' and 'bls-backend-blst' are mutually exclusive");
@@ -55,8 +55,9 @@ use backend_dusk as backend;
 /// Only items that exist identically in both backends are listed here.
 /// Backend-internal helpers (`multi_miller_loop`,
 /// `MillerLoopResult`, `multiscalar_mul` mod) are intentionally absent. The
-/// dusk backend may still expose extra inherent methods through its direct type
-/// re-exports; those are not part of the portability guarantee of this facade.
+/// dusk backend may still expose extra inherent methods and external trait impls
+/// through its direct type re-exports; those are not part of the portability
+/// guarantee of this facade.
 pub use backend::{
     BlsScalar, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, GENERATOR, Gt,
     ROOT_OF_UNITY, Scalar, TWO_ADACITY,
