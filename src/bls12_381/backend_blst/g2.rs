@@ -18,6 +18,17 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use super::{BlsScalar, G2Compressed, G2Uncompressed};
 
+// h_eff_G2 from RFC 9380 §8.8.2, little-endian. Matches blst's disabled
+// scalar-multiplication fallback in map_to_g2.c.
+const H_EFF_G2: [u8; 80] = [
+    0x51, 0x55, 0xa9, 0xaa, 0x05, 0x00, 0x02, 0xe8, 0xb4, 0xf6, 0xbb, 0xde, 0x0a, 0x4c, 0x89, 0x59,
+    0xa3, 0xf6, 0x89, 0x66, 0xc0, 0xcb, 0x54, 0xe9, 0x1a, 0x7c, 0x47, 0xd7, 0x69, 0xec, 0xc0, 0x2e,
+    0xb0, 0x12, 0x12, 0x5d, 0x01, 0xbf, 0x82, 0x6d, 0x95, 0xdb, 0x31, 0x87, 0x17, 0x2f, 0x9c, 0x32,
+    0xe1, 0xff, 0x08, 0x15, 0x03, 0xff, 0x86, 0x99, 0x68, 0xd7, 0x5a, 0x14, 0xe9, 0xa8, 0xe2, 0x88,
+    0x28, 0x35, 0x1b, 0xa9, 0x0e, 0x6a, 0x4c, 0x58, 0xb3, 0x75, 0xee, 0xf2, 0x08, 0x9f, 0xc6, 0x0b,
+];
+const H_EFF_G2_BITS: usize = 636;
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  G2Affine
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -564,28 +575,20 @@ impl G2Projective {
     /// Clears the cofactor, projecting an on-curve point onto the prime-order
     /// G2 subgroup.
     ///
-    /// The blst backend bridges through the canonical 192-byte IETF
-    /// uncompressed encoding to invoke `dusk_bls12_381::G2Projective::clear_cofactor`,
-    /// then re-decodes the cleared point. Bridging via uncompressed bytes is
-    /// required because the input may legitimately be on the curve but outside
-    /// the prime-order subgroup (e.g. the output of a hash-to-curve mapping),
-    /// and the dusk compressed `from_bytes` would reject such points. The
-    /// returned point is in the prime-order subgroup by construction.
-    ///
-    /// This delegation keeps both backends behaviourally identical for
-    /// security-sensitive constructions (BLS signatures, hash-to-curve)
-    /// without re-deriving the cofactor-clearing scalar in this crate.
+    /// For G2 this is multiplication by the RFC 9380 effective cofactor
+    /// `h_eff_G2`.
     #[must_use]
     pub fn clear_cofactor(&self) -> Self {
-        let bytes = <G2Affine as UncompressedEncoding>::to_uncompressed(&G2Affine::from(*self));
-        let dusk_aff = dusk_bls12_381::G2Affine::from_uncompressed_unchecked(&bytes.0).unwrap();
-        let cleared = dusk_bls12_381::G2Projective::from(dusk_aff).clear_cofactor();
-        let cleared_bytes = dusk_bls12_381::G2Affine::from(cleared).to_uncompressed();
-        let blst_aff = <G2Affine as UncompressedEncoding>::from_uncompressed(
-            &super::G2Uncompressed(cleared_bytes),
-        )
-        .unwrap();
-        Self::from(blst_aff)
+        let mut out = ::blst::blst_p2::default();
+        unsafe {
+            ::blst::blst_p2_mult(
+                &raw mut out,
+                &raw const self.0,
+                H_EFF_G2.as_ptr(),
+                H_EFF_G2_BITS,
+            );
+        }
+        Self(out)
     }
 }
 
@@ -1028,6 +1031,72 @@ mod tests {
     use super::*;
     use dusk_bytes::Serializable;
 
+    fn clear_cofactor_via_dusk_roundtrip(point: &G2Projective) -> G2Projective {
+        let bytes = <G2Affine as UncompressedEncoding>::to_uncompressed(&G2Affine::from(*point));
+        let dusk_aff = dusk_bls12_381::G2Affine::from_uncompressed_unchecked(&bytes.0).unwrap();
+        let cleared = dusk_bls12_381::G2Projective::from(dusk_aff).clear_cofactor();
+        let cleared_bytes = dusk_bls12_381::G2Affine::from(cleared).to_uncompressed();
+        let blst_aff = <G2Affine as UncompressedEncoding>::from_uncompressed(
+            &super::super::G2Uncompressed(cleared_bytes),
+        )
+        .unwrap();
+        G2Projective::from(blst_aff)
+    }
+
+    fn non_subgroup_g2_sample() -> G2Projective {
+        // Mirrors the dusk torsion-free test vector using the same Montgomery limbs.
+        G2Projective::from(G2Affine(::blst::blst_p2_affine {
+            x: ::blst::blst_fp2 {
+                fp: [
+                    ::blst::blst_fp {
+                        l: [
+                            0x89f5_50c8_13db_6431,
+                            0xa50b_e8c4_56cd_8a1a,
+                            0xa45b_3741_14ca_e851,
+                            0xbb61_90f5_bf7f_ff63,
+                            0x970c_a02c_3ba8_0bc7,
+                            0x02b8_5d24_e840_fbac,
+                        ],
+                    },
+                    ::blst::blst_fp {
+                        l: [
+                            0x6888_bc53_d707_16dc,
+                            0x3dea_6b41_1768_2d70,
+                            0xd8f5_f930_500c_a354,
+                            0x6b5e_cb65_56f5_c155,
+                            0xc96b_ef04_3477_8ab0,
+                            0x0508_1505_5150_06ad,
+                        ],
+                    },
+                ],
+            },
+            y: ::blst::blst_fp2 {
+                fp: [
+                    ::blst::blst_fp {
+                        l: [
+                            0x3cf1_ea0d_434b_0f40,
+                            0x1a0d_c610_e603_e333,
+                            0x7f89_9561_60c7_2fa0,
+                            0x25ee_03de_cf64_31c5,
+                            0xeee8_e206_ec0f_e137,
+                            0x0975_92b2_26df_ef28,
+                        ],
+                    },
+                    ::blst::blst_fp {
+                        l: [
+                            0x71e8_bb5f_2924_7367,
+                            0xa5fe_049e_2118_31ce,
+                            0x0ce6_b354_502a_3896,
+                            0x93b0_1200_0997_314e,
+                            0x6759_f3b6_aa5b_42ac,
+                            0x1569_44c4_dfe9_2bbb,
+                        ],
+                    },
+                ],
+            },
+        }))
+    }
+
     #[test]
     fn g2_affine_identity_roundtrip() {
         let id = G2Affine::identity();
@@ -1250,6 +1319,19 @@ mod tests {
     fn g2_clear_cofactor_identity_is_identity() {
         let cleared = G2Projective::identity().clear_cofactor();
         assert!(bool::from(cleared.is_identity()));
+    }
+
+    #[test]
+    fn g2_clear_cofactor_non_subgroup_matches_dusk_roundtrip() {
+        let point = non_subgroup_g2_sample();
+        assert!(bool::from(point.is_on_curve()));
+        assert!(!bool::from(G2Affine::from(point).is_torsion_free()));
+
+        let blst_cleared = G2Affine::from(point.clear_cofactor());
+        let dusk_cleared = G2Affine::from(clear_cofactor_via_dusk_roundtrip(&point));
+
+        assert_eq!(blst_cleared.to_raw_bytes(), dusk_cleared.to_raw_bytes());
+        assert!(bool::from(blst_cleared.is_torsion_free()));
     }
 
     #[test]
