@@ -157,14 +157,14 @@ impl Gt {
 
     fn mul_scalar(&self, rhs: &BlsScalar) -> Self {
         // Standard left-to-right double-and-add. `to_bytes` returns the scalar
-        // in little-endian, so we iterate bytes in reverse to walk MSB-first.
+        // in little-endian, so we iterate bytes in reverse to walk MSB-first
+        // and process all 256 bits.
         let mut acc = Self::identity();
         for bit in rhs
             .to_bytes()
             .iter()
             .rev()
             .flat_map(|byte| (0..8).rev().map(move |i| Choice::from((byte >> i) & 1u8)))
-            .skip(1)
         {
             acc = acc.double();
             acc = Self::conditional_select(&acc, &acc.add_group_element(self), bit);
