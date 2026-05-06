@@ -479,13 +479,7 @@ impl fmt::Display for G2Affine {
 // -- zeroize ----------------------------------------------------------------
 
 #[cfg(feature = "zeroize")]
-impl ::zeroize::Zeroize for G2Affine {
-    fn zeroize(&mut self) {
-        let ptr = &mut self.0 as *mut ::blst::blst_p2_affine as *mut u8;
-        let len = core::mem::size_of::<::blst::blst_p2_affine>();
-        unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-    }
-}
+impl ::zeroize::DefaultIsZeroes for G2Affine {}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  G2Projective
@@ -975,13 +969,7 @@ impl fmt::Display for G2Projective {
 // -- zeroize ----------------------------------------------------------------
 
 #[cfg(feature = "zeroize")]
-impl ::zeroize::Zeroize for G2Projective {
-    fn zeroize(&mut self) {
-        let ptr = &mut self.0 as *mut ::blst::blst_p2 as *mut u8;
-        let len = core::mem::size_of::<::blst::blst_p2>();
-        unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-    }
-}
+impl ::zeroize::DefaultIsZeroes for G2Projective {}
 
 // ── Serde support ───────────────────────────────────────────────────────────
 
@@ -1361,5 +1349,19 @@ mod tests {
         let g_aff = G2Affine::generator();
         assert_eq!(g.add_mixed(&g_aff), g + G2Projective::from(g_aff));
         assert!(bool::from(g.is_on_curve()));
+    }
+
+    #[cfg(feature = "zeroize")]
+    #[test]
+    fn g2_zeroize_resets_points_to_default() {
+        use zeroize::Zeroize;
+
+        let mut affine = G2Affine::generator();
+        affine.zeroize();
+        assert_eq!(affine, G2Affine::default());
+
+        let mut projective = G2Projective::generator();
+        projective.zeroize();
+        assert_eq!(projective, G2Projective::default());
     }
 }

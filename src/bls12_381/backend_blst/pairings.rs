@@ -600,29 +600,10 @@ impl ConditionallySelectable for MillerLoopResult {
 // ── zeroize ─────────────────────────────────────────────────────────────────
 
 #[cfg(feature = "zeroize")]
-impl ::zeroize::Zeroize for Gt {
-    fn zeroize(&mut self) {
-        let ptr = &mut self.0 as *mut ::blst::blst_fp12 as *mut u8;
-        let len = core::mem::size_of::<::blst::blst_fp12>();
-        // Safety: write_bytes overwrites the fp12 with zero, which is a valid
-        // (though degenerate) byte pattern. We immediately reset to the canonical
-        // identity element below so the value is left in a usable, non-secret state.
-        unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-        *self = Self::identity();
-    }
-}
+impl ::zeroize::DefaultIsZeroes for Gt {}
 
 #[cfg(feature = "zeroize")]
-impl ::zeroize::Zeroize for MillerLoopResult {
-    fn zeroize(&mut self) {
-        let ptr = &mut self.0 as *mut ::blst::blst_fp12 as *mut u8;
-        let len = core::mem::size_of::<::blst::blst_fp12>();
-        // Safety: see `Zeroize for Gt`. We restore the default value (one)
-        // afterwards to leave the result in a well-defined state.
-        unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-        *self = Self::default();
-    }
-}
+impl ::zeroize::DefaultIsZeroes for MillerLoopResult {}
 
 // ── serde ────────────────────────────────────────────────────────────────────
 

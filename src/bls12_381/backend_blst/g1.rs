@@ -451,16 +451,7 @@ impl fmt::Display for G1Affine {
 // -- zeroize ----------------------------------------------------------------
 
 #[cfg(feature = "zeroize")]
-impl ::zeroize::Zeroize for G1Affine {
-    fn zeroize(&mut self) {
-        // Overwrite the inner blst_p1_affine memory then re-set to identity
-        // so the point is valid (blst may read it again later).
-        let ptr = &mut self.0 as *mut ::blst::blst_p1_affine as *mut u8;
-        let len = core::mem::size_of::<::blst::blst_p1_affine>();
-        unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-        // All-zero blst_p1_affine is the identity, so the wrapper stays valid.
-    }
-}
+impl ::zeroize::DefaultIsZeroes for G1Affine {}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  G1Projective
@@ -941,14 +932,7 @@ impl fmt::Display for G1Projective {
 // -- zeroize ----------------------------------------------------------------
 
 #[cfg(feature = "zeroize")]
-impl ::zeroize::Zeroize for G1Projective {
-    fn zeroize(&mut self) {
-        let ptr = &mut self.0 as *mut ::blst::blst_p1 as *mut u8;
-        let len = core::mem::size_of::<::blst::blst_p1>();
-        unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-        // All-zero blst_p1 is the identity in blst's projective coordinates.
-    }
-}
+impl ::zeroize::DefaultIsZeroes for G1Projective {}
 
 // ── Variable-base MSM ───────────────────────────────────────────────────────
 
@@ -1278,5 +1262,19 @@ mod tests {
         let g_aff = G1Affine::generator();
         assert_eq!(g.add_mixed(&g_aff), g + G1Projective::from(g_aff));
         assert!(bool::from(g.is_on_curve()));
+    }
+
+    #[cfg(feature = "zeroize")]
+    #[test]
+    fn g1_zeroize_resets_points_to_default() {
+        use zeroize::Zeroize;
+
+        let mut affine = G1Affine::generator();
+        affine.zeroize();
+        assert_eq!(affine, G1Affine::default());
+
+        let mut projective = G1Projective::generator();
+        projective.zeroize();
+        assert_eq!(projective, G1Projective::default());
     }
 }
