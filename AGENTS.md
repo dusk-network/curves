@@ -211,6 +211,13 @@ If a change is security-sensitive and there is no focused test yet, add one.
   but not `std`
 - CI intentionally lints dusk and blst separately; do not collapse those into a
   single backend-specific command
+- do not remove inherent parity methods from the blst backend — `clear_cofactor`,
+  `to/from_compressed{,_unchecked}`, `to/from_uncompressed{,_unchecked}` on
+  affine types; `double`/`add`/`add_mixed`/`is_on_curve` on projective types;
+  and full `Gt` arithmetic are all considered part of the stable method surface
+  for both backends. If a method is present on the dusk backend, it must also
+  be present on the blst backend unless it is provably dusk-internal
+  (e.g. `pairing()`, `MillerLoopResult::Add`).
 
 ## Review mindset for agents
 

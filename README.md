@@ -80,11 +80,25 @@ surface:
 - **Functions:** `hash_to_scalar`, `scalar_from_wide`, `msm_variable_base`, `multi_miller_loop_result`, `pairing_product_is_identity`
 - **Constants:** `GENERATOR`, `ROOT_OF_UNITY`, `TWO_ADACITY`
 
-The portability guarantee applies to that shared facade. The default dusk
-backend forwards upstream `dusk-bls12_381` types directly, so additional
-inherent methods from the upstream crate may still be reachable there. Treat
-those methods as backend-specific: if code must compile against both backends,
-stick to the shared `dusk_curves::bls12_381` surface and parity methods only.
+The portability guarantee applies to that shared facade. Both backends now also
+implement a consistent set of inherent convenience methods that match the
+`dusk_bls12_381` API:
+
+| Group | Methods available on both backends |
+|---|---|
+| `G1Affine` / `G2Affine` | `to_compressed`, `to_uncompressed`, `from_compressed`, `from_compressed_unchecked`, `from_uncompressed`, `from_uncompressed_unchecked` |
+| `G1Projective` / `G2Projective` | `double`, `add`, `add_mixed`, `is_on_curve`, `clear_cofactor` |
+| `Gt` | `double`, `Add`/`Sub`/`Neg`/`Mul<BlsScalar>`, `Sum`, `group::Group` |
+| `G2Prepared` | `RAW_SIZE`, `to_raw_bytes`, unsafe `from_slice_unchecked` (`RAW_SIZE` and `to_raw_bytes` exist on both backends but their values are deliberately not portable across backends) |
+
+The default dusk backend forwards upstream `dusk-bls12_381` types directly, so
+a small number of additional inherent methods and external trait impls from
+that crate are still reachable there (e.g. `pairing()`,
+`MillerLoopResult::Add`, and `pairing::PairingCurveAffine` with
+`pairing_with()` / `Pair` / `PairingResult`). Treat those as dusk-specific
+extras; they are intentionally absent from the public facade in
+`src/bls12_381.rs`, and the blst backend does not currently implement the
+pairing crate's affine pairing traits.
 
 <details>
 <summary><strong><code>rkyv-impl</code> additions</strong> <em>(dusk backend only)</em></summary>

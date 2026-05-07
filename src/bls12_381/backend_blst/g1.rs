@@ -19,6 +19,8 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use super::{BlsScalar, G1Compressed, G1Uncompressed};
 
+const H_EFF_G1: [u8; 8] = 0xd201_0000_0001_0001u64.to_le_bytes();
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  G1Affine
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -97,6 +99,51 @@ impl G1Affine {
     pub fn is_on_curve(&self) -> Choice {
         let on_curve = unsafe { ::blst::blst_p1_affine_on_curve(&raw const self.0) };
         Choice::from(on_curve as u8)
+    }
+
+    /// Serialize this element into compressed form (48 bytes).
+    ///
+    /// Mirrors `dusk_bls12_381::G1Affine::to_compressed`. Equivalent to
+    /// `<G1Affine as dusk_bytes::Serializable<48>>::to_bytes(self)` and to
+    /// `<G1Affine as group::GroupEncoding>::to_bytes(self).0`.
+    #[must_use]
+    pub fn to_compressed(&self) -> [u8; 48] {
+        <Self as Serializable<48>>::to_bytes(self)
+    }
+
+    /// Serialize this element into uncompressed canonical form (96 bytes).
+    #[must_use]
+    pub fn to_uncompressed(&self) -> [u8; 96] {
+        let mut out = [0u8; 96];
+        unsafe { ::blst::blst_p1_affine_serialize(out.as_mut_ptr(), &raw const self.0) };
+        out
+    }
+
+    /// Attempt to deserialize a compressed element. Performs both on-curve and
+    /// subgroup-membership checks; matches the safe `dusk_bls12_381` API.
+    #[must_use]
+    pub fn from_compressed(bytes: &[u8; 48]) -> CtOption<Self> {
+        <Self as GroupEncoding>::from_bytes(&G1Compressed(*bytes))
+    }
+
+    /// Attempt to deserialize a compressed element without subgroup checks.
+    /// Caller is responsible for any subgroup validation needed.
+    #[must_use]
+    pub fn from_compressed_unchecked(bytes: &[u8; 48]) -> CtOption<Self> {
+        <Self as GroupEncoding>::from_bytes_unchecked(&G1Compressed(*bytes))
+    }
+
+    /// Attempt to deserialize an uncompressed element. Performs both on-curve
+    /// and subgroup-membership checks.
+    #[must_use]
+    pub fn from_uncompressed(bytes: &[u8; 96]) -> CtOption<Self> {
+        <Self as UncompressedEncoding>::from_uncompressed(&G1Uncompressed(*bytes))
+    }
+
+    /// Attempt to deserialize an uncompressed element without subgroup checks.
+    #[must_use]
+    pub fn from_uncompressed_unchecked(bytes: &[u8; 96]) -> CtOption<Self> {
+        <Self as UncompressedEncoding>::from_uncompressed_unchecked(&G1Uncompressed(*bytes))
     }
 }
 
@@ -404,16 +451,7 @@ impl fmt::Display for G1Affine {
 // -- zeroize ----------------------------------------------------------------
 
 #[cfg(feature = "zeroize")]
-impl ::zeroize::Zeroize for G1Affine {
-    fn zeroize(&mut self) {
-        // Overwrite the inner blst_p1_affine memory then re-set to identity
-        // so the point is valid (blst may read it again later).
-        let ptr = &mut self.0 as *mut ::blst::blst_p1_affine as *mut u8;
-        let len = core::mem::size_of::<::blst::blst_p1_affine>();
-        unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-        // All-zero blst_p1_affine is the identity, so the wrapper stays valid.
-    }
-}
+impl ::zeroize::DefaultIsZeroes for G1Affine {}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  G1Projective
@@ -465,6 +503,54 @@ impl G1Projective {
     pub fn is_identity(&self) -> Choice {
         let inf = unsafe { ::blst::blst_p1_is_inf(&raw const self.0) };
         Choice::from(inf as u8)
+    }
+
+    /// Returns true if this point lies on the curve.
+    #[must_use]
+    pub fn is_on_curve(&self) -> Choice {
+        let on_curve = unsafe { ::blst::blst_p1_on_curve(&raw const self.0) };
+        Choice::from(on_curve as u8)
+    }
+
+    /// Compute the doubling of this point.
+    #[must_use]
+    pub fn double(&self) -> Self {
+        let mut out = ::blst::blst_p1::default();
+        unsafe { ::blst::blst_p1_double(&raw mut out, &raw const self.0) };
+        Self(out)
+    }
+
+    /// Add this point to another projective point.
+    #[must_use]
+    pub fn add(&self, rhs: &Self) -> Self {
+        let mut out = ::blst::blst_p1::default();
+        unsafe { ::blst::blst_p1_add_or_double(&raw mut out, &raw const self.0, &raw const rhs.0) };
+        Self(out)
+    }
+
+    /// Add this point to an affine point (mixed addition).
+    #[must_use]
+    pub fn add_mixed(&self, rhs: &G1Affine) -> Self {
+        let mut out = ::blst::blst_p1::default();
+        unsafe {
+            ::blst::blst_p1_add_or_double_affine(&raw mut out, &raw const self.0, &raw const rhs.0);
+        }
+        Self(out)
+    }
+
+    /// Clears the cofactor, projecting an on-curve point onto the prime-order
+    /// G1 subgroup.
+    ///
+    /// For G1 this is multiplication by the IETF effective cofactor
+    /// `h_eff = 0xd201000000010001`, which matches the dusk backend's
+    /// `self - self.mul_by_x()` reference implementation.
+    #[must_use]
+    pub fn clear_cofactor(&self) -> Self {
+        let mut out = ::blst::blst_p1::default();
+        unsafe {
+            ::blst::blst_p1_mult(&raw mut out, &raw const self.0, H_EFF_G1.as_ptr(), 64);
+        }
+        Self(out)
     }
 }
 
@@ -765,9 +851,7 @@ impl Group for G1Projective {
     }
 
     fn double(&self) -> Self {
-        let mut out = ::blst::blst_p1::default();
-        unsafe { ::blst::blst_p1_double(&raw mut out, &raw const self.0) };
-        Self(out)
+        Self::double(self)
     }
 }
 
@@ -848,14 +932,7 @@ impl fmt::Display for G1Projective {
 // -- zeroize ----------------------------------------------------------------
 
 #[cfg(feature = "zeroize")]
-impl ::zeroize::Zeroize for G1Projective {
-    fn zeroize(&mut self) {
-        let ptr = &mut self.0 as *mut ::blst::blst_p1 as *mut u8;
-        let len = core::mem::size_of::<::blst::blst_p1>();
-        unsafe { core::ptr::write_bytes(ptr, 0u8, len) };
-        // All-zero blst_p1 is the identity in blst's projective coordinates.
-    }
-}
+impl ::zeroize::DefaultIsZeroes for G1Projective {}
 
 // ── Variable-base MSM ───────────────────────────────────────────────────────
 
@@ -926,6 +1003,44 @@ mod tests {
     use super::*;
     use alloc::vec;
     use dusk_bytes::Serializable;
+
+    fn clear_cofactor_via_dusk_roundtrip(point: &G1Projective) -> G1Projective {
+        let bytes = <G1Affine as UncompressedEncoding>::to_uncompressed(&G1Affine::from(*point));
+        let dusk_aff = dusk_bls12_381::G1Affine::from_uncompressed_unchecked(&bytes.0).unwrap();
+        let cleared = dusk_bls12_381::G1Projective::from(dusk_aff).clear_cofactor();
+        let cleared_bytes = dusk_bls12_381::G1Affine::from(cleared).to_uncompressed();
+        let blst_aff = <G1Affine as UncompressedEncoding>::from_uncompressed(
+            &super::super::G1Uncompressed(cleared_bytes),
+        )
+        .unwrap();
+        G1Projective::from(blst_aff)
+    }
+
+    fn non_subgroup_g1_sample() -> G1Projective {
+        // Mirrors the dusk torsion-free test vector using the same Montgomery limbs.
+        G1Projective::from(G1Affine(::blst::blst_p1_affine {
+            x: ::blst::blst_fp {
+                l: [
+                    0x0aba_f895_b97e_43c8,
+                    0xba4c_6432_eb9b_61b0,
+                    0x1250_6f52_adfe_307f,
+                    0x7502_8c34_3933_6b72,
+                    0x8474_4f05_b8e9_bd71,
+                    0x113d_554f_b095_54f7,
+                ],
+            },
+            y: ::blst::blst_fp {
+                l: [
+                    0x73e9_0e88_f5cf_01c0,
+                    0x3700_7b65_dd31_97e2,
+                    0x5cf9_a199_2f0d_7c78,
+                    0x4f83_c10b_9eb3_330d,
+                    0xf6a6_3f6f_07f6_0961,
+                    0x0c53_b5b9_7e63_4df3,
+                ],
+            },
+        }))
+    }
 
     #[test]
     fn g1_affine_identity_roundtrip() {
@@ -1084,5 +1199,82 @@ mod tests {
         assert_eq!(sel_a_affine, a_affine);
         assert_eq!(sel_b_affine, b_affine);
         assert_ne!(sel_a_affine, sel_b_affine);
+    }
+
+    #[test]
+    fn g1_clear_cofactor_matches_dusk() {
+        // On a subgroup-valid input, clear_cofactor must agree with the dusk
+        // reference implementation.
+        let blst_g = G1Projective::generator();
+        let dusk_g = dusk_bls12_381::G1Projective::generator();
+        let blst_cleared = G1Affine::from(blst_g.clear_cofactor());
+        let dusk_cleared = dusk_bls12_381::G1Affine::from(dusk_g.clear_cofactor());
+        assert_eq!(blst_cleared.to_raw_bytes(), dusk_cleared.to_raw_bytes());
+        // The generator is already subgroup-valid; clearing the cofactor must
+        // not move it off the prime-order subgroup.
+        assert!(bool::from(blst_cleared.is_torsion_free()));
+    }
+
+    #[test]
+    fn g1_clear_cofactor_identity_is_identity() {
+        let cleared = G1Projective::identity().clear_cofactor();
+        assert!(bool::from(cleared.is_identity()));
+    }
+
+    #[test]
+    fn g1_clear_cofactor_non_subgroup_matches_dusk_roundtrip() {
+        let point = non_subgroup_g1_sample();
+        assert!(bool::from(point.is_on_curve()));
+        assert!(!bool::from(G1Affine::from(point).is_torsion_free()));
+
+        let blst_cleared = G1Affine::from(point.clear_cofactor());
+        let dusk_cleared = G1Affine::from(clear_cofactor_via_dusk_roundtrip(&point));
+
+        assert_eq!(blst_cleared.to_raw_bytes(), dusk_cleared.to_raw_bytes());
+        assert!(bool::from(blst_cleared.is_torsion_free()));
+    }
+
+    #[test]
+    fn g1_affine_inherent_encoding_matches_traits() {
+        let g = G1Affine::generator();
+        let compressed = g.to_compressed();
+        let uncompressed = g.to_uncompressed();
+        assert_eq!(compressed, <G1Affine as Serializable<48>>::to_bytes(&g));
+        assert_eq!(
+            uncompressed,
+            <G1Affine as UncompressedEncoding>::to_uncompressed(&g).0
+        );
+        assert_eq!(G1Affine::from_compressed(&compressed).unwrap(), g);
+        assert_eq!(G1Affine::from_compressed_unchecked(&compressed).unwrap(), g);
+        assert_eq!(G1Affine::from_uncompressed(&uncompressed).unwrap(), g);
+        assert_eq!(
+            G1Affine::from_uncompressed_unchecked(&uncompressed).unwrap(),
+            g
+        );
+    }
+
+    #[test]
+    fn g1_projective_inherent_arithmetic_matches_trait_impl() {
+        let g = G1Projective::generator();
+        // Inherent double / add agree with their trait counterparts.
+        assert_eq!(g.double(), g + g);
+        assert_eq!(g.add(&g), g + g);
+        let g_aff = G1Affine::generator();
+        assert_eq!(g.add_mixed(&g_aff), g + G1Projective::from(g_aff));
+        assert!(bool::from(g.is_on_curve()));
+    }
+
+    #[cfg(feature = "zeroize")]
+    #[test]
+    fn g1_zeroize_resets_points_to_default() {
+        use zeroize::Zeroize;
+
+        let mut affine = G1Affine::generator();
+        affine.zeroize();
+        assert_eq!(affine, G1Affine::default());
+
+        let mut projective = G1Projective::generator();
+        projective.zeroize();
+        assert_eq!(projective, G1Projective::default());
     }
 }
