@@ -71,6 +71,11 @@ That includes:
 If two backends disagree on accepted inputs, encodings, equality, or pairing
 results, that is a bug, not an implementation detail.
 
+The blst backend test suite includes inter-backend parity tests against the
+dusk implementation for scalar helpers, G1/G2 arithmetic, canonical encodings,
+MSM behavior, and pairing identity checks. Those tests are intended to catch
+observable backend drift before it reaches downstream code.
+
 ## 📚 Public API
 
 Regardless of the backend, `dusk_curves::bls12_381` exposes the same public
@@ -186,7 +191,10 @@ Targeted checks are also available, including:
 - `make clippy-blst`
 - `make test-dusk`
 - `make test-dusk-rkyv`
+- `make test-dusk-zeroize`
 - `make test-blst`
+- `make test-blst-zeroize`
+- `make test-blst-serde-zeroize`
 
 ## 📄 License
 

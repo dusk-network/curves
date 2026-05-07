@@ -20,6 +20,18 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 use super::{BlsScalar, G1Compressed, G1Uncompressed};
 
 const H_EFF_G1: [u8; 8] = 0xd201_0000_0001_0001u64.to_le_bytes();
+const UNCOMPRESSED_REJECTED_FLAGS: u8 = 0x80 | 0x20;
+
+fn has_valid_uncompressed_flags(first_byte: u8) -> bool {
+    first_byte & UNCOMPRESSED_REJECTED_FLAGS == 0
+}
+
+fn g1_unchecked_decode_succeeded(err: ::blst::BLST_ERROR) -> bool {
+    matches!(
+        err,
+        ::blst::BLST_ERROR::BLST_SUCCESS | ::blst::BLST_ERROR::BLST_POINT_NOT_IN_GROUP
+    )
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  G1Affine
@@ -65,8 +77,13 @@ impl G1Affine {
     /// Create a `G1Affine` from bytes created by `G1Affine::to_raw_bytes`.
     ///
     /// # Safety
-    /// The caller must guarantee that `bytes` contains a valid raw encoding of
-    /// a point that lies on the BLS12-381 G1 curve.
+    /// The caller must guarantee that `bytes` contains the exact trusted raw
+    /// representation produced by `G1Affine::to_raw_bytes`, or an equivalent
+    /// valid Montgomery-limb encoding of a point on the BLS12-381 G1 curve.
+    ///
+    /// No validation or constant-time parsing is performed. If the resulting
+    /// point is used where subgroup membership is required, the caller must
+    /// also guarantee that it is in the prime-order subgroup.
     #[must_use]
     pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
         if bytes.len() >= Self::RAW_SIZE && bytes[Self::RAW_SIZE - 1] != 0 {
@@ -344,8 +361,8 @@ impl GroupEncoding for G1Affine {
 
     fn from_bytes_unchecked(bytes: &Self::Repr) -> CtOption<Self> {
         let mut out = ::blst::blst_p1_affine::default();
-        let err = unsafe { ::blst::blst_p1_deserialize(&raw mut out, bytes.0.as_ptr()) };
-        let is_ok = err == ::blst::BLST_ERROR::BLST_SUCCESS;
+        let err = unsafe { ::blst::blst_p1_uncompress(&raw mut out, bytes.0.as_ptr()) };
+        let is_ok = g1_unchecked_decode_succeeded(err);
         CtOption::new(Self(out), Choice::from(is_ok as u8))
     }
 
@@ -361,17 +378,28 @@ impl UncompressedEncoding for G1Affine {
 
     fn from_uncompressed(bytes: &Self::Uncompressed) -> CtOption<Self> {
         let mut out = ::blst::blst_p1_affine::default();
-        let err = unsafe { ::blst::blst_p1_deserialize(&raw mut out, bytes.0.as_ptr()) };
+        let valid_flags = has_valid_uncompressed_flags(bytes.0[0]);
+        let err = if valid_flags {
+            unsafe { ::blst::blst_p1_deserialize(&raw mut out, bytes.0.as_ptr()) }
+        } else {
+            ::blst::BLST_ERROR::BLST_BAD_ENCODING
+        };
         let p = Self(out);
-        let in_group = unsafe { ::blst::blst_p1_affine_in_g1(&raw const p.0) };
-        let ok = (err == ::blst::BLST_ERROR::BLST_SUCCESS) && in_group;
+        let decoded = err == ::blst::BLST_ERROR::BLST_SUCCESS;
+        let in_group = decoded && unsafe { ::blst::blst_p1_affine_in_g1(&raw const p.0) };
+        let ok = decoded && in_group;
         CtOption::new(p, Choice::from(ok as u8))
     }
 
     fn from_uncompressed_unchecked(bytes: &Self::Uncompressed) -> CtOption<Self> {
         let mut out = ::blst::blst_p1_affine::default();
-        let err = unsafe { ::blst::blst_p1_deserialize(&raw mut out, bytes.0.as_ptr()) };
-        let ok = err == ::blst::BLST_ERROR::BLST_SUCCESS;
+        let valid_flags = has_valid_uncompressed_flags(bytes.0[0]);
+        let err = if valid_flags {
+            unsafe { ::blst::blst_p1_deserialize(&raw mut out, bytes.0.as_ptr()) }
+        } else {
+            ::blst::BLST_ERROR::BLST_BAD_ENCODING
+        };
+        let ok = g1_unchecked_decode_succeeded(err);
         CtOption::new(Self(out), Choice::from(ok as u8))
     }
 
@@ -1083,6 +1111,87 @@ mod tests {
         );
         let blst_double = G1Affine::from(G1Projective::generator() + G1Projective::generator());
         assert_eq!(blst_double.to_raw_bytes(), dusk_double.to_raw_bytes());
+    }
+
+    #[test]
+    fn g1_rejects_malformed_encodings() {
+        let compressed = [0u8; 48];
+        assert!(<G1Affine as Serializable<48>>::from_bytes(&compressed).is_err());
+        assert!(!bool::from(
+            G1Affine::from_compressed(&compressed).is_some()
+        ));
+        assert!(!bool::from(
+            G1Affine::from_compressed_unchecked(&compressed).is_some()
+        ));
+
+        let uncompressed = [0xffu8; 96];
+        assert!(!bool::from(
+            G1Affine::from_uncompressed(&uncompressed).is_some()
+        ));
+        assert!(!bool::from(
+            G1Affine::from_uncompressed_unchecked(&uncompressed).is_some()
+        ));
+    }
+
+    #[test]
+    fn g1_uncompressed_decoders_reject_compressed_encodings() {
+        let compressed = G1Affine::generator().to_compressed();
+        let mut uncompressed = [0u8; 96];
+        uncompressed[..48].copy_from_slice(&compressed);
+
+        assert!(!bool::from(
+            G1Affine::from_uncompressed(&uncompressed).is_some()
+        ));
+        assert!(!bool::from(
+            G1Affine::from_uncompressed_unchecked(&uncompressed).is_some()
+        ));
+    }
+
+    #[test]
+    fn g1_checked_decoders_reject_non_subgroup_points() {
+        let affine = G1Affine::from(non_subgroup_g1_sample());
+        let compressed = affine.to_compressed();
+        let uncompressed = affine.to_uncompressed();
+
+        assert!(<G1Affine as Serializable<48>>::from_bytes(&compressed).is_err());
+        assert!(!bool::from(
+            G1Affine::from_compressed(&compressed).is_some()
+        ));
+        assert!(!bool::from(
+            G1Affine::from_uncompressed(&uncompressed).is_some()
+        ));
+
+        assert_eq!(
+            G1Affine::from_compressed_unchecked(&compressed).unwrap(),
+            affine
+        );
+        assert_eq!(
+            G1Affine::from_uncompressed_unchecked(&uncompressed).unwrap(),
+            affine
+        );
+    }
+
+    #[test]
+    fn g1_unchecked_decoders_accept_x_zero_non_subgroup_point() {
+        let mut compressed = [0u8; 48];
+        compressed[0] = 0x80;
+
+        let mut uncompressed = [0u8; 96];
+        uncompressed[95] = 2;
+
+        assert!(!bool::from(
+            G1Affine::from_compressed(&compressed).is_some()
+        ));
+        assert!(bool::from(
+            G1Affine::from_compressed_unchecked(&compressed).is_some()
+        ));
+
+        assert!(!bool::from(
+            G1Affine::from_uncompressed(&uncompressed).is_some()
+        ));
+        assert!(bool::from(
+            G1Affine::from_uncompressed_unchecked(&uncompressed).is_some()
+        ));
     }
 
     #[test]

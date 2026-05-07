@@ -239,7 +239,8 @@ const GT_GENERATOR: ::blst::blst_fp12 = ::blst::blst_fp12 {
 /// Prepared G2 element for pairing.
 ///
 /// In the blst backend this is a thin affine wrapper used only to drive
-/// pairing operations.
+/// pairing operations. Its raw representation is backend-specific and is not
+/// interchangeable with the dusk backend's prepared-coefficient encoding.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct G2Prepared(pub(crate) ::blst::blst_p2_affine);
 
@@ -273,8 +274,13 @@ impl G2Prepared {
     /// Create a prepared element from the raw affine representation.
     ///
     /// # Safety
-    /// The caller must guarantee that `bytes` contains a valid raw G2 affine
-    /// encoding produced by this backend.
+    /// The caller must guarantee that `bytes` contains the exact trusted raw G2
+    /// affine encoding produced by this backend's `G2Prepared::to_raw_bytes`.
+    /// Dusk-backend `G2Prepared` raw bytes encode Miller-loop coefficients and
+    /// must not be passed here.
+    ///
+    /// No validation or constant-time parsing is performed. The decoded affine
+    /// point must be valid for any pairing operation it is used in.
     #[must_use]
     pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
         Self(unsafe { G2Affine::from_slice_unchecked(bytes) }.0)
@@ -600,6 +606,9 @@ impl ConditionallySelectable for MillerLoopResult {
 // ── zeroize ─────────────────────────────────────────────────────────────────
 
 #[cfg(feature = "zeroize")]
+impl ::zeroize::DefaultIsZeroes for G2Prepared {}
+
+#[cfg(feature = "zeroize")]
 impl ::zeroize::DefaultIsZeroes for Gt {}
 
 #[cfg(feature = "zeroize")]
@@ -825,6 +834,24 @@ mod tests {
         let mut gt = multi_miller_loop_result(&[(&g1, &prepared)]);
         gt.zeroize();
         assert_eq!(gt, Gt::identity());
+    }
+
+    #[cfg(feature = "zeroize")]
+    #[test]
+    fn prepared_and_miller_loop_zeroize_reset_to_default() {
+        use ::zeroize::Zeroize;
+
+        let g1 = G1Affine::generator();
+        let mut prepared = G2Prepared::from(G2Affine::generator());
+        let mut result = multi_miller_loop(&[(&g1, &prepared)]);
+
+        assert_ne!(result.final_exponentiation(), Gt::identity());
+
+        prepared.zeroize();
+        result.zeroize();
+
+        assert_eq!(G2Affine(prepared.0), G2Affine::default());
+        assert_eq!(result.final_exponentiation(), Gt::identity());
     }
 
     #[cfg(feature = "serde")]

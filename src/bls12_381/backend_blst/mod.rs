@@ -201,6 +201,96 @@ pub fn scalar_from_wide(bytes: &[u8; 64]) -> Scalar {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
+    use dusk_bls12_381 as dusk_reference;
+
+    fn fixed_wide_bytes() -> [u8; 64] {
+        let mut bytes = [0u8; 64];
+        for (byte_index, byte) in bytes.iter_mut().enumerate() {
+            *byte = (byte_index as u8).wrapping_mul(17).wrapping_add(3);
+        }
+        bytes
+    }
+
+    fn assert_g1_interchanges_with_dusk(
+        blst_affine: G1Affine,
+        dusk_affine: dusk_reference::G1Affine,
+    ) {
+        let blst_compressed = blst_affine.to_compressed();
+        let dusk_compressed = dusk_affine.to_compressed();
+        let blst_uncompressed = blst_affine.to_uncompressed();
+        let dusk_uncompressed = dusk_affine.to_uncompressed();
+
+        assert_eq!(blst_compressed, dusk_compressed);
+        assert_eq!(blst_uncompressed, dusk_uncompressed);
+        assert_eq!(blst_affine.to_raw_bytes(), dusk_affine.to_raw_bytes());
+
+        assert_eq!(
+            G1Affine::from_compressed(&dusk_compressed).unwrap(),
+            blst_affine
+        );
+        assert_eq!(
+            G1Affine::from_uncompressed(&dusk_uncompressed).unwrap(),
+            blst_affine
+        );
+        assert_eq!(
+            dusk_reference::G1Affine::from_compressed(&blst_compressed).unwrap(),
+            dusk_affine
+        );
+        assert_eq!(
+            dusk_reference::G1Affine::from_uncompressed(&blst_uncompressed).unwrap(),
+            dusk_affine
+        );
+    }
+
+    fn assert_g2_interchanges_with_dusk(
+        blst_affine: G2Affine,
+        dusk_affine: dusk_reference::G2Affine,
+    ) {
+        let blst_compressed = blst_affine.to_compressed();
+        let dusk_compressed = dusk_affine.to_compressed();
+        let blst_uncompressed = blst_affine.to_uncompressed();
+        let dusk_uncompressed = dusk_affine.to_uncompressed();
+
+        assert_eq!(blst_compressed, dusk_compressed);
+        assert_eq!(blst_uncompressed, dusk_uncompressed);
+        assert_eq!(blst_affine.to_raw_bytes(), dusk_affine.to_raw_bytes());
+
+        assert_eq!(
+            G2Affine::from_compressed(&dusk_compressed).unwrap(),
+            blst_affine
+        );
+        assert_eq!(
+            G2Affine::from_uncompressed(&dusk_uncompressed).unwrap(),
+            blst_affine
+        );
+        assert_eq!(
+            dusk_reference::G2Affine::from_compressed(&blst_compressed).unwrap(),
+            dusk_affine
+        );
+        assert_eq!(
+            dusk_reference::G2Affine::from_uncompressed(&blst_uncompressed).unwrap(),
+            dusk_affine
+        );
+    }
+
+    fn dusk_pairing_product_is_identity(
+        terms: &[(&dusk_reference::G1Affine, &dusk_reference::G2Affine)],
+    ) -> bool {
+        let prepared_terms: Vec<_> = terms
+            .iter()
+            .map(|(g1_affine, g2_affine)| {
+                (**g1_affine, dusk_reference::G2Prepared::from(**g2_affine))
+            })
+            .collect();
+        let refs: Vec<_> = prepared_terms
+            .iter()
+            .map(|(g1_affine, g2_prepared)| (g1_affine, g2_prepared))
+            .collect();
+
+        dusk_reference::multi_miller_loop(&refs).final_exponentiation()
+            == dusk_reference::Gt::identity()
+    }
 
     #[test]
     fn affine_validation_methods_match_expectations() {
@@ -208,6 +298,194 @@ mod tests {
         assert!(bool::from(G1Affine::generator().is_torsion_free()));
         assert!(bool::from(G2Affine::generator().is_on_curve()));
         assert!(bool::from(G2Affine::generator().is_torsion_free()));
+    }
+
+    #[test]
+    fn scalar_helpers_match_dusk_backend() {
+        for input in [
+            b"" as &[u8],
+            b"backend parity",
+            b"dusk-curves blst wrapper interchange",
+        ] {
+            assert_eq!(
+                hash_to_scalar(input),
+                dusk_reference::BlsScalar::hash_to_scalar(input)
+            );
+        }
+
+        let zero_wide = [0u8; 64];
+        let patterned_wide = fixed_wide_bytes();
+        for wide in [zero_wide, patterned_wide] {
+            assert_eq!(
+                scalar_from_wide(&wide),
+                dusk_reference::BlsScalar::from_bytes_wide(&wide)
+            );
+        }
+    }
+
+    #[test]
+    fn g1_computations_interchange_with_dusk_backend() {
+        let scalar = scalar_from_wide(&fixed_wide_bytes());
+        let blst_generator = G1Projective::generator();
+        let dusk_generator = dusk_reference::G1Projective::generator();
+
+        for (blst_affine, dusk_affine) in [
+            (G1Affine::identity(), dusk_reference::G1Affine::identity()),
+            (G1Affine::generator(), dusk_reference::G1Affine::generator()),
+            (
+                G1Affine::from(blst_generator + blst_generator),
+                dusk_reference::G1Affine::from(dusk_generator + dusk_generator),
+            ),
+            (
+                G1Affine::from(blst_generator * BlsScalar::from(7u64)),
+                dusk_reference::G1Affine::from(dusk_generator * BlsScalar::from(7u64)),
+            ),
+            (
+                G1Affine::from((blst_generator * scalar) - blst_generator),
+                dusk_reference::G1Affine::from((dusk_generator * scalar) - dusk_generator),
+            ),
+            (
+                G1Affine::from(-blst_generator),
+                dusk_reference::G1Affine::from(-dusk_generator),
+            ),
+        ] {
+            assert_g1_interchanges_with_dusk(blst_affine, dusk_affine);
+        }
+    }
+
+    #[test]
+    fn g2_computations_interchange_with_dusk_backend() {
+        let scalar = scalar_from_wide(&fixed_wide_bytes());
+        let blst_generator = G2Projective::generator();
+        let dusk_generator = dusk_reference::G2Projective::generator();
+
+        for (blst_affine, dusk_affine) in [
+            (G2Affine::identity(), dusk_reference::G2Affine::identity()),
+            (G2Affine::generator(), dusk_reference::G2Affine::generator()),
+            (
+                G2Affine::from(blst_generator + blst_generator),
+                dusk_reference::G2Affine::from(dusk_generator + dusk_generator),
+            ),
+            (
+                G2Affine::from(blst_generator * BlsScalar::from(7u64)),
+                dusk_reference::G2Affine::from(dusk_generator * BlsScalar::from(7u64)),
+            ),
+            (
+                G2Affine::from((blst_generator * scalar) - blst_generator),
+                dusk_reference::G2Affine::from((dusk_generator * scalar) - dusk_generator),
+            ),
+            (
+                G2Affine::from(-blst_generator),
+                dusk_reference::G2Affine::from(-dusk_generator),
+            ),
+        ] {
+            assert_g2_interchanges_with_dusk(blst_affine, dusk_affine);
+        }
+    }
+
+    #[test]
+    fn msm_matches_dusk_backend() {
+        let scalar = scalar_from_wide(&fixed_wide_bytes());
+        let blst_generator = G1Projective::generator();
+        let dusk_generator = dusk_reference::G1Projective::generator();
+        let blst_points = [
+            G1Affine::generator(),
+            G1Affine::from(blst_generator + blst_generator),
+            G1Affine::from(blst_generator * BlsScalar::from(9u64)),
+            G1Affine::from(-blst_generator),
+        ];
+        let dusk_points = [
+            dusk_reference::G1Affine::generator(),
+            dusk_reference::G1Affine::from(dusk_generator + dusk_generator),
+            dusk_reference::G1Affine::from(dusk_generator * BlsScalar::from(9u64)),
+            dusk_reference::G1Affine::from(-dusk_generator),
+        ];
+        let scalars = [
+            BlsScalar::one(),
+            BlsScalar::from(3u64),
+            scalar,
+            -&BlsScalar::one(),
+        ];
+
+        assert_g1_interchanges_with_dusk(
+            G1Affine::from(msm_variable_base(&blst_points, &scalars)),
+            dusk_reference::G1Affine::from(dusk_reference::multiscalar_mul::msm_variable_base(
+                &dusk_points,
+                &scalars,
+            )),
+        );
+        assert_g1_interchanges_with_dusk(
+            G1Affine::from(msm_variable_base(&blst_points[..3], &scalars[..2])),
+            dusk_reference::G1Affine::from(dusk_reference::multiscalar_mul::msm_variable_base(
+                &dusk_points[..3],
+                &scalars[..2],
+            )),
+        );
+        assert_g1_interchanges_with_dusk(
+            G1Affine::from(msm_variable_base(&blst_points[..2], &scalars[..3])),
+            dusk_reference::G1Affine::from(dusk_reference::multiscalar_mul::msm_variable_base(
+                &dusk_points[..2],
+                &scalars[..3],
+            )),
+        );
+    }
+
+    #[test]
+    fn pairing_identity_checks_match_dusk_backend() {
+        let scalar = BlsScalar::from(11u64);
+        let blst_g1 = G1Affine::generator();
+        let blst_neg_g1 = -blst_g1;
+        let blst_g1_scaled = G1Affine::from(G1Projective::generator() * scalar);
+        let blst_g2 = G2Affine::generator();
+        let blst_g2_scaled = G2Affine::from(G2Projective::generator() * scalar);
+        let blst_neg_g2_scaled = -blst_g2_scaled;
+
+        let dusk_g1 = dusk_reference::G1Affine::generator();
+        let dusk_neg_g1 = -dusk_g1;
+        let dusk_g1_scaled =
+            dusk_reference::G1Affine::from(dusk_reference::G1Projective::generator() * scalar);
+        let dusk_g2 = dusk_reference::G2Affine::generator();
+        let dusk_g2_scaled =
+            dusk_reference::G2Affine::from(dusk_reference::G2Projective::generator() * scalar);
+        let dusk_neg_g2_scaled = -dusk_g2_scaled;
+
+        assert_eq!(
+            pairing_product_is_identity(&[]),
+            dusk_pairing_product_is_identity(&[])
+        );
+        assert_eq!(
+            pairing_product_is_identity(&[(&blst_g1, &blst_g2)]),
+            dusk_pairing_product_is_identity(&[(&dusk_g1, &dusk_g2)])
+        );
+        assert_eq!(
+            pairing_product_is_identity(&[(&blst_g1, &blst_g2), (&blst_neg_g1, &blst_g2)]),
+            dusk_pairing_product_is_identity(&[(&dusk_g1, &dusk_g2), (&dusk_neg_g1, &dusk_g2)])
+        );
+        assert_eq!(
+            pairing_product_is_identity(&[
+                (&blst_g1_scaled, &blst_g2),
+                (&blst_g1, &blst_neg_g2_scaled),
+            ]),
+            dusk_pairing_product_is_identity(&[
+                (&dusk_g1_scaled, &dusk_g2),
+                (&dusk_g1, &dusk_neg_g2_scaled),
+            ])
+        );
+
+        let blst_prepared =
+            G2Prepared::from(G2Affine::from_compressed(&dusk_g2.to_compressed()).unwrap());
+        assert_ne!(
+            multi_miller_loop_result(&[(&blst_g1, &blst_prepared)]),
+            Gt::identity()
+        );
+        assert_ne!(
+            dusk_reference::multi_miller_loop(&[(
+                &dusk_g1,
+                &dusk_reference::G2Prepared::from(dusk_g2)
+            )])
+            .final_exponentiation(),
+            dusk_reference::Gt::identity()
+        );
     }
 
     #[cfg(feature = "serde")]
