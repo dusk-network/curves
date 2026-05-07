@@ -1,14 +1,17 @@
-BLST     := --no-default-features --features bls-backend-blst
-RKYV     := --features rkyv-impl
-ZEROIZE  := --features zeroize
-PARALLEL := --features parallel
+BLST                 := --no-default-features --features bls-backend-blst
+BLST_ZEROIZE         := --no-default-features --features bls-backend-blst,zeroize
+BLST_SERDE_ZEROIZE   := --no-default-features --features bls-backend-blst,serde,zeroize
+RKYV                 := --features rkyv-impl
+ZEROIZE              := --features zeroize
+PARALLEL             := --features parallel
 
 CLIPPY   := --release -- -D warnings
 
 .PHONY: all \
         fmt fmt-check \
         clippy clippy-dusk clippy-dusk-rkyv clippy-dusk-zeroize clippy-dusk-parallel clippy-blst \
-        test test-dusk test-dusk-rkyv test-blst \
+        test test-dusk test-dusk-rkyv test-dusk-zeroize \
+        test-blst test-blst-zeroize test-blst-serde-zeroize \
         doc doc-dusk doc-blst \
         cq \
         no-std
@@ -38,7 +41,7 @@ clippy-dusk-parallel:
 clippy-blst:
 	cargo clippy $(BLST) $(CLIPPY)
 
-test: test-dusk test-dusk-rkyv test-blst
+test: test-dusk test-dusk-rkyv test-dusk-zeroize test-blst test-blst-zeroize test-blst-serde-zeroize
 
 test-dusk:
 	cargo test
@@ -46,8 +49,17 @@ test-dusk:
 test-dusk-rkyv:
 	cargo test $(RKYV)
 
+test-dusk-zeroize:
+	cargo test $(ZEROIZE)
+
 test-blst:
 	cargo test $(BLST)
+
+test-blst-zeroize:
+	cargo test $(BLST_ZEROIZE)
+
+test-blst-serde-zeroize:
+	cargo test $(BLST_SERDE_ZEROIZE)
 
 doc: doc-dusk doc-blst
 

@@ -134,6 +134,12 @@ opaque derives or raw field comparisons.
   feature wiring changes.
 - `ff` is intentionally not a direct dependency anymore. The crate gets it
   transitively from `dusk-bls12_381` where needed.
+- `dusk-bls12_381` also appears as a direct dev-dependency with `alloc`,
+  `groups`, and `pairings` enabled on purpose. The blst backend tests use it as
+  the dusk reference implementation for inter-backend parity checks. Do not
+  remove it, rename it, or move `pairings` into the production
+  `bls-backend-blst` feature unless the backend feature model is deliberately
+  changed and revalidated.
 
 Dependency and feature changes can alter validation behavior, no_std behavior,
 or backend parity. Treat them as security-relevant.
@@ -173,7 +179,10 @@ Targeted commands:
 - `make clippy-blst`
 - `make test-dusk`
 - `make test-dusk-rkyv`
+- `make test-dusk-zeroize`
 - `make test-blst`
+- `make test-blst-zeroize`
+- `make test-blst-serde-zeroize`
 - `make doc-dusk`
 - `make doc-blst`
 
@@ -188,6 +197,9 @@ Targeted commands:
 - serialization, decoding, equality, or pairing changes: run both backends and
   add targeted tests for malformed inputs, identity handling, and canonical
   round-trips when possible
+- serialization or zeroize changes in the blst backend: also run
+  `make test-blst-serde-zeroize`; zeroize-only dusk changes should run
+  `make test-dusk-zeroize`
 - `Makefile` or workflow changes: run the touched `make` targets locally
 
 If a change is security-sensitive and there is no focused test yet, add one.
@@ -195,6 +207,8 @@ If a change is security-sensitive and there is no focused test yet, add one.
 ## Common pitfalls
 
 - do not enable dusk-only features on the blst backend
+- do not remove the dev-only `dusk-bls12_381` reference dependency used by blst
+  parity tests
 - do not forget subgroup checks after deserialization on safe APIs
 - do not rely on raw memory equality when mathematical equality is required
 - do not let the two backends drift in public error behavior, encoding, or
