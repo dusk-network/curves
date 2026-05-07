@@ -18,6 +18,8 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use super::{BlsScalar, G2Compressed, G2Uncompressed};
 
+const UNCOMPRESSED_REJECTED_FLAGS: u8 = 0x80 | 0x20;
+
 // h_eff_G2 from RFC 9380 §8.8.2, little-endian. Matches blst's disabled
 // scalar-multiplication fallback in map_to_g2.c.
 const H_EFF_G2: [u8; 80] = [
@@ -28,6 +30,10 @@ const H_EFF_G2: [u8; 80] = [
     0x28, 0x35, 0x1b, 0xa9, 0x0e, 0x6a, 0x4c, 0x58, 0xb3, 0x75, 0xee, 0xf2, 0x08, 0x9f, 0xc6, 0x0b,
 ];
 const H_EFF_G2_BITS: usize = 636;
+
+fn has_valid_uncompressed_flags(first_byte: u8) -> bool {
+    first_byte & UNCOMPRESSED_REJECTED_FLAGS == 0
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  G2Affine
@@ -78,8 +84,13 @@ impl G2Affine {
     /// Create a `G2Affine` from bytes created by `G2Affine::to_raw_bytes`.
     ///
     /// # Safety
-    /// The caller must guarantee that `bytes` contains a valid raw encoding of
-    /// a point that lies on the BLS12-381 G2 curve.
+    /// The caller must guarantee that `bytes` contains the exact trusted raw
+    /// representation produced by `G2Affine::to_raw_bytes`, or an equivalent
+    /// valid Montgomery-limb encoding of a point on the BLS12-381 G2 curve.
+    ///
+    /// No validation or constant-time parsing is performed. If the resulting
+    /// point is used where subgroup membership is required, the caller must
+    /// also guarantee that it is in the prime-order subgroup.
     #[must_use]
     pub unsafe fn from_slice_unchecked(bytes: &[u8]) -> Self {
         if bytes.len() >= Self::RAW_SIZE && bytes[Self::RAW_SIZE - 1] != 0 {
@@ -372,7 +383,7 @@ impl GroupEncoding for G2Affine {
 
     fn from_bytes_unchecked(bytes: &Self::Repr) -> CtOption<Self> {
         let mut out = ::blst::blst_p2_affine::default();
-        let err = unsafe { ::blst::blst_p2_deserialize(&raw mut out, bytes.0.as_ptr()) };
+        let err = unsafe { ::blst::blst_p2_uncompress(&raw mut out, bytes.0.as_ptr()) };
         let is_ok = err == ::blst::BLST_ERROR::BLST_SUCCESS;
         CtOption::new(Self(out), Choice::from(is_ok as u8))
     }
@@ -389,16 +400,27 @@ impl UncompressedEncoding for G2Affine {
 
     fn from_uncompressed(bytes: &Self::Uncompressed) -> CtOption<Self> {
         let mut out = ::blst::blst_p2_affine::default();
-        let err = unsafe { ::blst::blst_p2_deserialize(&raw mut out, bytes.0.as_ptr()) };
+        let valid_flags = has_valid_uncompressed_flags(bytes.0[0]);
+        let err = if valid_flags {
+            unsafe { ::blst::blst_p2_deserialize(&raw mut out, bytes.0.as_ptr()) }
+        } else {
+            ::blst::BLST_ERROR::BLST_BAD_ENCODING
+        };
         let p = Self(out);
-        let in_group = unsafe { ::blst::blst_p2_affine_in_g2(&raw const p.0) };
-        let ok = (err == ::blst::BLST_ERROR::BLST_SUCCESS) && in_group;
+        let decoded = err == ::blst::BLST_ERROR::BLST_SUCCESS;
+        let in_group = decoded && unsafe { ::blst::blst_p2_affine_in_g2(&raw const p.0) };
+        let ok = decoded && in_group;
         CtOption::new(p, Choice::from(ok as u8))
     }
 
     fn from_uncompressed_unchecked(bytes: &Self::Uncompressed) -> CtOption<Self> {
         let mut out = ::blst::blst_p2_affine::default();
-        let err = unsafe { ::blst::blst_p2_deserialize(&raw mut out, bytes.0.as_ptr()) };
+        let valid_flags = has_valid_uncompressed_flags(bytes.0[0]);
+        let err = if valid_flags {
+            unsafe { ::blst::blst_p2_deserialize(&raw mut out, bytes.0.as_ptr()) }
+        } else {
+            ::blst::BLST_ERROR::BLST_BAD_ENCODING
+        };
         let ok = err == ::blst::BLST_ERROR::BLST_SUCCESS;
         CtOption::new(Self(out), Choice::from(ok as u8))
     }
@@ -1126,6 +1148,64 @@ mod tests {
         );
         let blst_double = G2Affine::from(G2Projective::generator() + G2Projective::generator());
         assert_eq!(blst_double.to_raw_bytes(), dusk_double.to_raw_bytes());
+    }
+
+    #[test]
+    fn g2_rejects_malformed_encodings() {
+        let compressed = [0u8; 96];
+        assert!(<G2Affine as Serializable<96>>::from_bytes(&compressed).is_err());
+        assert!(!bool::from(
+            G2Affine::from_compressed(&compressed).is_some()
+        ));
+        assert!(!bool::from(
+            G2Affine::from_compressed_unchecked(&compressed).is_some()
+        ));
+
+        let uncompressed = [0xffu8; 192];
+        assert!(!bool::from(
+            G2Affine::from_uncompressed(&uncompressed).is_some()
+        ));
+        assert!(!bool::from(
+            G2Affine::from_uncompressed_unchecked(&uncompressed).is_some()
+        ));
+    }
+
+    #[test]
+    fn g2_uncompressed_decoders_reject_compressed_encodings() {
+        let compressed = G2Affine::generator().to_compressed();
+        let mut uncompressed = [0u8; 192];
+        uncompressed[..96].copy_from_slice(&compressed);
+
+        assert!(!bool::from(
+            G2Affine::from_uncompressed(&uncompressed).is_some()
+        ));
+        assert!(!bool::from(
+            G2Affine::from_uncompressed_unchecked(&uncompressed).is_some()
+        ));
+    }
+
+    #[test]
+    fn g2_checked_decoders_reject_non_subgroup_points() {
+        let affine = G2Affine::from(non_subgroup_g2_sample());
+        let compressed = affine.to_compressed();
+        let uncompressed = affine.to_uncompressed();
+
+        assert!(<G2Affine as Serializable<96>>::from_bytes(&compressed).is_err());
+        assert!(!bool::from(
+            G2Affine::from_compressed(&compressed).is_some()
+        ));
+        assert!(!bool::from(
+            G2Affine::from_uncompressed(&uncompressed).is_some()
+        ));
+
+        assert_eq!(
+            G2Affine::from_compressed_unchecked(&compressed).unwrap(),
+            affine
+        );
+        assert_eq!(
+            G2Affine::from_uncompressed_unchecked(&uncompressed).unwrap(),
+            affine
+        );
     }
 
     #[test]
