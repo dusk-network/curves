@@ -4,6 +4,18 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MPL-2.0"
+description = "Backend-agnostic elliptic curve primitives"
+documentation = "https://docs.rs/dusk-curves"
+repository = "https://github.com/dusk-network/curves"
+readme = "README.md"
+keywords = ["bls12-381", "elliptic-curves", "pairing", "cryptography"]
+categories = ["cryptography", "mathematics"]
+include = [
+	"/Cargo.toml",
+	"/LICENSE",
+	"/README.md",
+	"/src/**",
+]
 
 [dependencies]
 dusk-bytes = "0.1"
