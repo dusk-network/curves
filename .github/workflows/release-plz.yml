@@ -25,7 +25,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: dusk-network/.github/.github/workflows/rust-release-plan.yml@eb646f213d658c53b617dbb06052f5869780f37b
+    uses: dusk-network/.github/.github/workflows/rust-release-plan.yml@c17c3d704614ddce3dd364489960e52807794b2f
 
   release_check:
     name: Validate release PR
@@ -33,10 +33,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    uses: dusk-network/.github/.github/workflows/rust-release-check.yml@eb646f213d658c53b617dbb06052f5869780f37b
+    uses: dusk-network/.github/.github/workflows/rust-release-check.yml@c17c3d704614ddce3dd364489960e52807794b2f
     with:
       publish-packages: dusk-curves
-      workflow-scripts-ref: eb646f213d658c53b617dbb06052f5869780f37b
+      workflow-scripts-ref: c17c3d704614ddce3dd364489960e52807794b2f
 
   publish:
     name: Publish crates
@@ -45,8 +45,8 @@ jobs:
       contents: write
       pull-requests: read
       id-token: write
-    uses: dusk-network/.github/.github/workflows/rust-publish-crates.yml@eb646f213d658c53b617dbb06052f5869780f37b
+    uses: dusk-network/.github/.github/workflows/rust-publish-crates.yml@c17c3d704614ddce3dd364489960e52807794b2f
     with:
       publish-packages: dusk-curves
       environment: crates-io
-      workflow-scripts-ref: eb646f213d658c53b617dbb06052f5869780f37b
+      workflow-scripts-ref: c17c3d704614ddce3dd364489960e52807794b2f
