@@ -1,0 +1,32 @@
+[workspace]
+changelog_update = true
+release_always = false
+release = false
+dependencies_update = false
+git_release_enable = true
+git_release_draft = false
+git_tag_enable = true
+publish = true
+publish_no_verify = false
+publish_allow_dirty = false
+pr_branch_prefix = "release-plz-"
+pr_name = "chore: release Rust crates"
+pr_labels = ["release"]
+
+[changelog]
+trim = true
+commit_parsers = [
+  { message = "^feat", group = "added" },
+  { message = "^fix", group = "fixed" },
+  { message = "^perf", group = "changed" },
+  { message = "^refactor", group = "changed" },
+  { message = "^docs", group = "documented" },
+  { message = "^security", group = "security" },
+  { message = "^chore", group = "maintenance" },
+]
+
+[[package]]
+name = "dusk-curves"
+publish = true
+release = true
+git_tag_name = "v{{ version }}"
