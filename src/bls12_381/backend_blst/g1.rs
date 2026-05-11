@@ -19,6 +19,9 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use super::{BlsScalar, G1Compressed, G1Uncompressed};
 
+#[cfg(feature = "rkyv-impl")]
+use rkyv::{Archive, Deserialize, Fallible, Serialize};
+
 const H_EFF_G1: [u8; 8] = 0xd201_0000_0001_0001u64.to_le_bytes();
 const UNCOMPRESSED_REJECTED_FLAGS: u8 = 0x80 | 0x20;
 
@@ -40,6 +43,70 @@ fn g1_unchecked_decode_succeeded(err: ::blst::BLST_ERROR) -> bool {
 /// G1 affine point wrapping `blst_p1_affine`.
 #[derive(Copy, Clone, Default, PartialEq, Eq)]
 pub struct G1Affine(pub(crate) ::blst::blst_p1_affine);
+
+#[cfg(feature = "rkyv-impl")]
+#[derive(Copy, Clone, Debug)]
+#[repr(transparent)]
+/// Archived compressed representation of a blst-backed G1 affine point.
+pub struct ArchivedG1Affine([u8; 48]);
+
+#[cfg(feature = "rkyv-impl")]
+/// Resolver for archiving a blst-backed G1 affine point.
+pub type G1AffineResolver = ();
+
+#[cfg(feature = "rkyv-impl")]
+#[derive(Debug)]
+/// Error returned when archived G1 affine bytes do not encode a valid point.
+pub struct InvalidG1Affine;
+
+#[cfg(feature = "rkyv-impl")]
+impl fmt::Display for InvalidG1Affine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("invalid archived G1 affine point")
+    }
+}
+
+#[cfg(feature = "rkyv-impl")]
+impl<C: ?Sized> bytecheck::CheckBytes<C> for ArchivedG1Affine {
+    type Error = InvalidG1Affine;
+
+    unsafe fn check_bytes<'a>(value: *const Self, _: &mut C) -> Result<&'a Self, Self::Error> {
+        let value = unsafe { &*value };
+        if bool::from(G1Affine::from_compressed(&value.0).is_some()) {
+            Ok(value)
+        } else {
+            Err(InvalidG1Affine)
+        }
+    }
+}
+
+#[cfg(feature = "rkyv-impl")]
+impl Archive for G1Affine {
+    type Archived = ArchivedG1Affine;
+    type Resolver = G1AffineResolver;
+
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
+        unsafe { out.write(ArchivedG1Affine(self.to_compressed())) };
+    }
+}
+
+#[cfg(feature = "rkyv-impl")]
+impl<S: Fallible + ?Sized> Serialize<S> for G1Affine {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+#[cfg(feature = "rkyv-impl")]
+impl<D: Fallible + ?Sized> Deserialize<G1Affine, D> for ArchivedG1Affine
+where
+    D::Error: From<InvalidG1Affine>,
+{
+    fn deserialize(&self, _: &mut D) -> Result<G1Affine, D::Error> {
+        Option::<G1Affine>::from(G1Affine::from_compressed(&self.0))
+            .ok_or_else(|| InvalidG1Affine.into())
+    }
+}
 
 impl G1Affine {
     /// The identity (point-at-infinity).
