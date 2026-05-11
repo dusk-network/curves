@@ -11,7 +11,8 @@ CLIPPY   := --release -- -D warnings
         fmt fmt-check \
         clippy clippy-dusk clippy-dusk-rkyv clippy-dusk-zeroize clippy-dusk-parallel clippy-blst \
         test test-dusk test-dusk-rkyv test-dusk-zeroize \
-        test-blst test-blst-zeroize test-blst-serde-zeroize \
+		test-blst test-blst-zeroize test-blst-serde-zeroize \
+		bench bench-dusk bench-blst \
         doc doc-dusk doc-blst \
         cq \
         no-std
@@ -60,6 +61,14 @@ test-blst-zeroize:
 
 test-blst-serde-zeroize:
 	cargo test $(BLST_SERDE_ZEROIZE)
+
+bench: bench-dusk
+
+bench-dusk:
+	cargo bench --bench bls12_381
+
+bench-blst:
+	cargo bench $(BLST) --bench bls12_381
 
 doc: doc-dusk doc-blst
 

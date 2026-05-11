@@ -196,6 +196,24 @@ Targeted checks are also available, including:
 - `make test-blst-zeroize`
 - `make test-blst-serde-zeroize`
 
+### Benchmarks
+
+Criterion benchmarks cover the shared BLS12-381 facade for variable-base MSM,
+multi-Miller-loop plus final exponentiation, and product-of-pairings identity
+checks.
+
+Run the default dusk backend:
+
+```sh
+make bench-dusk
+```
+
+Run the blst backend:
+
+```sh
+make bench-blst
+```
+
 ## 📄 License
 
 This Source Code Form is subject to the terms of the [Mozilla Public License,
