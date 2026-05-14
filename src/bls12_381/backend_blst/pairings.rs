@@ -21,6 +21,14 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
 use super::{BlsScalar, G1Affine, G2Affine, Scalar};
 
+#[cfg(feature = "rkyv-impl")]
+mod rkyv;
+#[cfg(feature = "rkyv-impl")]
+pub use self::rkyv::{
+    ArchivedG2Prepared, ArchivedGt, ArchivedMillerLoopResult, G2PreparedResolver, GtResolver,
+    InvalidG2Prepared, InvalidGt, InvalidMillerLoopResult, MillerLoopResultResolver,
+};
+
 // ── Internal Fp/Fp2/Fp6/Fp12 conditional-select helpers ──────────────────────
 
 fn conditional_select_fp(

@@ -28,15 +28,16 @@ serde = { version = "1", default-features = false, features = ["alloc"], optiona
 subtle = { version = "2", default-features = false, optional = true }
 zeroize = { version = "1", default-features = false, optional = true }
 rkyv = { version = "0.7", optional = true, default-features = false }
+bytecheck = { version = "0.6", optional = true, default-features = false }
 
 [features]
 default = ["bls-backend-dusk"]
 bls-backend-dusk = ["dep:dusk-bls12_381", "dusk-bls12_381/groups", "dusk-bls12_381/pairings", "dusk-bls12_381/alloc"]
 bls-backend-blst = ["dep:blst", "dep:dusk-bls12_381", "dusk-bls12_381/alloc", "dusk-bls12_381/groups", "dep:group", "dep:rand_core", "dep:subtle"]
-# Forward dusk-bls12_381 features for downstream crates (dusk backend only)
+# Forward dusk-bls12_381 features where this crate's public surface depends on them.
 default-bls = ["bls-backend-dusk", "dusk-bls12_381/default"]
 parallel = ["dusk-bls12_381/parallel"]
-rkyv-impl = ["bls-backend-dusk", "dusk-bls12_381/rkyv-impl", "dep:rkyv", "rkyv/size_64"]
+rkyv-impl = ["dusk-bls12_381/rkyv-impl", "dep:rkyv", "dep:bytecheck", "rkyv/size_64", "rkyv/validation"]
 serde = ["dep:hex", "dep:serde", "dusk-bls12_381/serde"]
 zeroize = ["dep:zeroize"]
 

@@ -50,6 +50,34 @@ BLS12-381 backends:
 
 The two backend features are **mutually exclusive**.
 
+### Backend-specific rkyv archives
+
+The public API is backend-agnostic, but `rkyv` archived bytes are **not** a
+backend-portable storage format. The same facade type name can have different
+archived layouts depending on the selected backend; for example, the dusk
+backend archives affine points using its field-level layout, while the blst
+backend archives its wrapper types using backend-specific byte layouts.
+
+Do not read archives produced with one backend after switching to another
+backend unless the data has been explicitly migrated or reserialized. If an
+application stores `rkyv` blobs across process versions, include an external
+format version and backend identifier such as `bls-backend-dusk` or
+`bls-backend-blst`, reject mismatches before deserializing, and reserialize
+under the new backend during migration.
+
+`rkyv` validation of `G2Prepared` does not prove subgroup membership. The blst
+backend validates canonical raw affine field limbs, curve membership, and
+non-identity handling for archived `G2Prepared`; it deliberately does not add a
+subgroup check because the dusk backend's prepared Miller coefficients are not
+subgroup-checked by archive validation either. If pairing inputs must satisfy
+subgroup membership, enforce that before constructing or archiving
+`G2Prepared`.
+
+`rkyv` validation of `MillerLoopResult` only proves that the archived bytes are
+a canonical, non-zero Fp12 element. It does not prove that the element was
+produced by an actual Miller loop, so applications must not treat archive
+validation as a cryptographic statement about the pairing computation.
+
 ## 🔐 Security and correctness
 
 This crate sits on a security-sensitive boundary. Backend changes and refactors
@@ -106,7 +134,7 @@ extras; they are intentionally absent from the public facade in
 pairing crate's affine pairing traits.
 
 <details>
-<summary><strong><code>rkyv-impl</code> additions</strong> <em>(dusk backend only)</em></summary>
+<summary><strong><code>rkyv-impl</code> additions</strong></summary>
 
 - `ArchivedBlsScalar`
 - `ArchivedG1Affine`
@@ -122,6 +150,19 @@ pairing crate's affine pairing traits.
 - `MillerLoopResultResolver`
 
 </details>
+
+The `rkyv-impl` feature is available with either backend. Archived type names
+are shared through the facade, but the bytes are backend-specific. See
+"Backend-specific rkyv archives" above before using archives for persisted
+storage.
+
+The blst backend also exports explicit archived-value validation error names:
+`InvalidG1Affine`, `InvalidG2Affine`, `InvalidG2Prepared`, `InvalidGt`, and
+`InvalidMillerLoopResult`. These names are blst-only. The dusk backend forwards
+the upstream `dusk-bls12_381` archived types directly, and its bytecheck errors
+come from upstream derives rather than facade-level named errors. Code that
+implements `From<Invalid*>` for an rkyv deserializer must cfg-gate those impls
+on `bls-backend-blst`.
 
 ## 📦 Usage
 
@@ -169,7 +210,7 @@ assert!(pairing_product_is_identity(&[(&g1, &g2), (&g1, &minus_g2)]));
 - `bls-backend-blst` — alternate backend, based on `blst`
 - `default-bls` — forwards the default feature set of `dusk-bls12_381`
 - `parallel` — enables Rayon parallelism on the dusk backend only
-- `rkyv-impl` — enables `rkyv` archiving and serialization on the dusk backend only
+- `rkyv-impl` — enables `rkyv` archiving, validation, and serialization; archived bytes are backend-specific
 - `zeroize` — enables zeroization support in this crate
 
 ## 🛠 Development
@@ -189,10 +230,12 @@ Targeted checks are also available, including:
 - `make clippy-dusk-zeroize`
 - `make clippy-dusk-parallel`
 - `make clippy-blst`
+- `make clippy-blst-rkyv`
 - `make test-dusk`
 - `make test-dusk-rkyv`
 - `make test-dusk-zeroize`
 - `make test-blst`
+- `make test-blst-rkyv`
 - `make test-blst-zeroize`
 - `make test-blst-serde-zeroize`
 

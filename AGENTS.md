@@ -41,8 +41,13 @@ If a change trades clarity or safety for cleverness, do not make it.
 - Alternate backend: `bls-backend-blst`
 - The two backend features are mutually exclusive.
 - `parallel` is dusk-only.
-- `rkyv-impl` is dusk-only.
+- `rkyv-impl` is supported with both backends.
 - `zeroize` is supported independently of backend.
+- `rkyv` archived bytes are backend-specific and are not a portable storage
+  format across `bls-backend-dusk` and `bls-backend-blst`, even when the facade
+  type names are the same. Persisted archives must be externally tagged with a
+  format version and backend identifier, and backend switches require explicit
+  migration or reserialization.
 
 When changing the public API, keep `src/bls12_381.rs` backend-agnostic unless a
 feature gate is explicitly required.
@@ -62,6 +67,9 @@ These invariants matter:
 - `hash_to_scalar` must remain deterministic and backend-independent.
 - `scalar_from_wide` must preserve its exact reduction behavior and endianness.
 - serialization and deserialization must remain canonical and predictable.
+- public encodings should preserve backend parity, but `rkyv` archive layouts
+  are backend-specific internal storage formats unless a change explicitly
+  redesigns and validates cross-backend archive compatibility.
 - equality must reflect group equality, not accidental memory equality.
 - identity handling must remain correct and consistent in affine and projective
   forms.
@@ -129,9 +137,10 @@ opaque derives or raw field comparisons.
 
 - `group`, `rand_core`, and `subtle` are optional on purpose and are only
   activated from `bls-backend-blst`.
-- `rkyv` is a direct optional dependency on purpose. It enables `rkyv/size_64`
-  for this crate's `rkyv-impl` feature. Do not remove it unless upstream
-  feature wiring changes.
+- `rkyv` and `bytecheck` are direct optional dependencies on purpose. They
+  enable archive, validation, and `rkyv/size_64` support for this crate's
+  `rkyv-impl` feature. Do not remove them unless upstream feature wiring
+  changes.
 - `ff` is intentionally not a direct dependency anymore. The crate gets it
   transitively from `dusk-bls12_381` where needed.
 - `dusk-bls12_381` also appears as a direct dev-dependency with `alloc`,
@@ -177,10 +186,12 @@ Targeted commands:
 - `make clippy-dusk-zeroize`
 - `make clippy-dusk-parallel`
 - `make clippy-blst`
+- `make clippy-blst-rkyv`
 - `make test-dusk`
 - `make test-dusk-rkyv`
 - `make test-dusk-zeroize`
 - `make test-blst`
+- `make test-blst-rkyv`
 - `make test-blst-zeroize`
 - `make test-blst-serde-zeroize`
 - `make doc-dusk`
@@ -194,11 +205,13 @@ Targeted commands:
   `make clippy-dusk-rkyv` or `make clippy-dusk-parallel` if those code paths are
   affected
 - `src/bls12_381/backend_blst/`: run at least `make clippy-blst` and `make test-blst`
+  or the `*-blst-rkyv` variants if rkyv code paths are affected
 - serialization, decoding, equality, or pairing changes: run both backends and
   add targeted tests for malformed inputs, identity handling, and canonical
   round-trips when possible
-- serialization or zeroize changes in the blst backend: also run
-  `make test-blst-serde-zeroize`; zeroize-only dusk changes should run
+- serialization, rkyv, or zeroize changes in the blst backend: also run the
+  relevant targeted variant (`make test-blst-rkyv`,
+  `make test-blst-serde-zeroize`); zeroize-only dusk changes should run
   `make test-dusk-zeroize`
 - `Makefile` or workflow changes: run the touched `make` targets locally
 
@@ -206,15 +219,15 @@ If a change is security-sensitive and there is no focused test yet, add one.
 
 ## Common pitfalls
 
-- do not enable dusk-only features on the blst backend
+- do not enable dusk-only features such as `parallel` on the blst backend
 - do not remove the dev-only `dusk-bls12_381` reference dependency used by blst
   parity tests
 - do not forget subgroup checks after deserialization on safe APIs
 - do not rely on raw memory equality when mathematical equality is required
 - do not let the two backends drift in public error behavior, encoding, or
   equality semantics
-- do not remove the direct `rkyv` dependency unless upstream feature wiring is
-  changed and revalidated
+- do not remove the direct `rkyv` or `bytecheck` dependencies unless upstream
+  feature wiring is changed and revalidated
 - do not widen unsafe surfaces unnecessarily
 - do not accept non-canonical encodings just because an upstream primitive can
   parse them

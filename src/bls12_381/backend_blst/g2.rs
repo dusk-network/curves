@@ -18,6 +18,11 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use super::{BlsScalar, G2Compressed, G2Uncompressed};
 
+#[cfg(feature = "rkyv-impl")]
+mod rkyv;
+#[cfg(feature = "rkyv-impl")]
+pub use self::rkyv::{ArchivedG2Affine, G2AffineResolver, InvalidG2Affine};
+
 const UNCOMPRESSED_REJECTED_FLAGS: u8 = 0x80 | 0x20;
 
 // h_eff_G2 from RFC 9380 §8.8.2, little-endian. Matches blst's disabled

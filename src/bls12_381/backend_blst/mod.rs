@@ -20,6 +20,9 @@
 
 pub use dusk_bls12_381::{BlsScalar, GENERATOR, ROOT_OF_UNITY, TWO_ADACITY};
 
+#[cfg(feature = "rkyv-impl")]
+pub use dusk_bls12_381::{ArchivedBlsScalar, BlsScalarResolver};
+
 /// Scalar type for this backend — same as `BlsScalar`.
 pub type Scalar = dusk_bls12_381::BlsScalar;
 
@@ -171,10 +174,23 @@ macro_rules! impl_ref_binops {
 mod g1;
 mod g2;
 mod pairings;
+#[cfg(all(test, feature = "rkyv-impl"))]
+mod rkyv_tests;
 
+#[cfg(feature = "rkyv-impl")]
+pub use g1::{ArchivedG1Affine, G1AffineResolver, InvalidG1Affine};
 pub use g1::{G1Affine, G1Projective, msm_variable_base};
+#[cfg(feature = "rkyv-impl")]
+pub use g2::{ArchivedG2Affine, G2AffineResolver, InvalidG2Affine};
 pub use g2::{G2Affine, G2Projective};
-pub use pairings::{G2Prepared, Gt, multi_miller_loop_result, pairing_product_is_identity};
+#[cfg(feature = "rkyv-impl")]
+pub use pairings::{
+    ArchivedG2Prepared, ArchivedGt, ArchivedMillerLoopResult, G2PreparedResolver, GtResolver,
+    InvalidG2Prepared, InvalidGt, InvalidMillerLoopResult, MillerLoopResultResolver,
+};
+pub use pairings::{
+    G2Prepared, Gt, MillerLoopResult, multi_miller_loop_result, pairing_product_is_identity,
+};
 
 // ── Module-level scalar functions ────────────────────────────────────────────
 //

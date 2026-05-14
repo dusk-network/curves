@@ -19,6 +19,11 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
 use super::{BlsScalar, G1Compressed, G1Uncompressed};
 
+#[cfg(feature = "rkyv-impl")]
+mod rkyv;
+#[cfg(feature = "rkyv-impl")]
+pub use self::rkyv::{ArchivedG1Affine, G1AffineResolver, InvalidG1Affine};
+
 const H_EFF_G1: [u8; 8] = 0xd201_0000_0001_0001u64.to_le_bytes();
 const UNCOMPRESSED_REJECTED_FLAGS: u8 = 0x80 | 0x20;
 
