@@ -73,6 +73,11 @@ subgroup-checked by archive validation either. If pairing inputs must satisfy
 subgroup membership, enforce that before constructing or archiving
 `G2Prepared`.
 
+`rkyv` validation of `MillerLoopResult` only proves that the archived bytes are
+a canonical, non-zero Fp12 element. It does not prove that the element was
+produced by an actual Miller loop, so applications must not treat archive
+validation as a cryptographic statement about the pairing computation.
+
 ## 🔐 Security and correctness
 
 This crate sits on a security-sensitive boundary. Backend changes and refactors

@@ -188,7 +188,9 @@ pub use pairings::{
     ArchivedG2Prepared, ArchivedGt, ArchivedMillerLoopResult, G2PreparedResolver, GtResolver,
     InvalidG2Prepared, InvalidGt, InvalidMillerLoopResult, MillerLoopResultResolver,
 };
-pub use pairings::{G2Prepared, Gt, multi_miller_loop_result, pairing_product_is_identity};
+pub use pairings::{
+    G2Prepared, Gt, MillerLoopResult, multi_miller_loop_result, pairing_product_is_identity,
+};
 
 // ── Module-level scalar functions ────────────────────────────────────────────
 //

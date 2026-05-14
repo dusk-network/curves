@@ -30,6 +30,8 @@ impl fmt::Display for InvalidG1Affine {
     }
 }
 
+impl core::error::Error for InvalidG1Affine {}
+
 impl<C: ?Sized> bytecheck::CheckBytes<C> for ArchivedG1Affine {
     type Error = InvalidG1Affine;
 

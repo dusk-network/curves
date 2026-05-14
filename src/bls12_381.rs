@@ -47,14 +47,13 @@ use backend_dusk as backend;
 /// Re-export the backend-agnostic BLS12-381 primitives through `dusk-curves`.
 ///
 /// Only items that exist identically in both backends are listed here.
-/// Backend-internal helpers (`multi_miller_loop`,
-/// `MillerLoopResult`, `multiscalar_mul` mod) are intentionally absent. The
-/// dusk backend may still expose extra inherent methods and external trait impls
-/// through its direct type re-exports; those are not part of the portability
-/// guarantee of this facade.
+/// Backend-internal helpers (`multi_miller_loop`, `multiscalar_mul` mod) are
+/// intentionally absent. The dusk backend may still expose extra inherent
+/// methods and external trait impls through its direct type re-exports; those
+/// are not part of the portability guarantee of this facade.
 pub use backend::{
     BlsScalar, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, GENERATOR, Gt,
-    ROOT_OF_UNITY, Scalar, TWO_ADACITY,
+    MillerLoopResult, ROOT_OF_UNITY, Scalar, TWO_ADACITY,
 };
 
 #[cfg(feature = "rkyv-impl")]

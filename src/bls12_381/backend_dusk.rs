@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 // methods reachable here should be treated as dusk-specific surface.
 pub use dusk_bls12_381::{
     BlsScalar, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, GENERATOR, Gt,
-    ROOT_OF_UNITY, TWO_ADACITY,
+    MillerLoopResult, ROOT_OF_UNITY, TWO_ADACITY,
 };
 
 #[cfg(feature = "rkyv-impl")]

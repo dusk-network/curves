@@ -114,6 +114,8 @@ impl fmt::Display for InvalidG2Prepared {
     }
 }
 
+impl core::error::Error for InvalidG2Prepared {}
+
 fn g2_prepared_raw_bytes_are_valid(bytes: &[u8; G2Affine::RAW_SIZE]) -> bool {
     if bytes[G2Affine::RAW_SIZE - 1] != 0 {
         return bytes == &G2Affine::identity().to_raw_bytes();
@@ -207,6 +209,8 @@ impl fmt::Display for InvalidGt {
     }
 }
 
+impl core::error::Error for InvalidGt {}
+
 impl<C: ?Sized> bytecheck::CheckBytes<C> for ArchivedGt {
     type Error = InvalidGt;
 
@@ -262,6 +266,16 @@ impl fmt::Display for InvalidMillerLoopResult {
     }
 }
 
+impl core::error::Error for InvalidMillerLoopResult {}
+
+/// Validates archived blst-backed Miller-loop result bytes.
+///
+/// # Caveat
+///
+/// This check only validates that the archive contains canonical, non-zero
+/// raw Fp12 bytes. It does not prove that the element is the output of an
+/// actual Miller loop. Callers must not treat successful archive validation as
+/// proof that the value has cryptographic meaning as a pairing computation.
 impl<C: ?Sized> bytecheck::CheckBytes<C> for ArchivedMillerLoopResult {
     type Error = InvalidMillerLoopResult;
 
@@ -275,6 +289,14 @@ impl<C: ?Sized> bytecheck::CheckBytes<C> for ArchivedMillerLoopResult {
     }
 }
 
+/// Archives a blst-backed Miller-loop result as raw Fp12 bytes.
+///
+/// # Caveat
+///
+/// The archived representation preserves the supplied Fp12 element. Archive
+/// validation for this type only checks canonical, non-zero raw Fp12 bytes; it
+/// does not prove that the restored value was produced by an actual Miller
+/// loop.
 impl Archive for MillerLoopResult {
     type Archived = ArchivedMillerLoopResult;
     type Resolver = MillerLoopResultResolver;
