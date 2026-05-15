@@ -65,6 +65,9 @@ These invariants matter:
 - `G1Affine`, `G1Projective`, `G2Affine`, `G2Projective`, `G2Prepared`, and
   `Gt` must refer to the same mathematical objects regardless of backend.
 - `hash_to_scalar` must remain deterministic and backend-independent.
+- `hash_to_g1` and `hash_to_g2` must preserve the caller-supplied domain
+  separation tag exactly and produce backend-identical encodings for the same
+  `(message, domain)` pair.
 - `scalar_from_wide` must preserve its exact reduction behavior and endianness.
 - serialization and deserialization must remain canonical and predictable.
 - public encodings should preserve backend parity, but `rkyv` archive layouts

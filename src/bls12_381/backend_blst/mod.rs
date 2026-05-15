@@ -204,6 +204,44 @@ pub fn hash_to_scalar(bytes: &[u8]) -> Scalar {
     Scalar::hash_to_scalar(bytes)
 }
 
+/// Hash arbitrary bytes to a G1 point using the supplied domain separation tag.
+#[must_use]
+#[inline]
+pub fn hash_to_g1(message: &[u8], dst: &[u8]) -> G1Projective {
+    let mut out = ::blst::blst_p1::default();
+    unsafe {
+        ::blst::blst_hash_to_g1(
+            &raw mut out,
+            message.as_ptr(),
+            message.len(),
+            dst.as_ptr(),
+            dst.len(),
+            core::ptr::null(),
+            0,
+        )
+    };
+    G1Projective(out)
+}
+
+/// Hash arbitrary bytes to a G2 point using the supplied domain separation tag.
+#[must_use]
+#[inline]
+pub fn hash_to_g2(message: &[u8], dst: &[u8]) -> G2Projective {
+    let mut out = ::blst::blst_p2::default();
+    unsafe {
+        ::blst::blst_hash_to_g2(
+            &raw mut out,
+            message.as_ptr(),
+            message.len(),
+            dst.as_ptr(),
+            dst.len(),
+            core::ptr::null(),
+            0,
+        )
+    };
+    G2Projective(out)
+}
+
 /// Reduce a wide little-endian integer modulo the scalar field order.
 #[must_use]
 #[inline]
@@ -219,6 +257,8 @@ mod tests {
     use super::*;
     use alloc::vec::Vec;
     use dusk_bls12_381 as dusk_reference;
+    use dusk_reference::hash_to_curve::{ExpandMsgXmd, HashToCurve};
+    use sha2::Sha256;
 
     fn fixed_wide_bytes() -> [u8; 64] {
         let mut bytes = [0u8; 64];
@@ -336,6 +376,60 @@ mod tests {
                 scalar_from_wide(&wide),
                 dusk_reference::BlsScalar::from_bytes_wide(&wide)
             );
+        }
+    }
+
+    #[test]
+    fn hash_to_g1_matches_dusk_backend() {
+        const G1_DST: &[u8] = b"DUSK_CURVES_TEST_HASH_TO_G1_XMD:SHA-256_SSWU_RO_";
+
+        for message in [
+            b"" as &[u8],
+            b"backend parity",
+            b"dusk-curves hash-to-curve helpers keep downstream crates backend agnostic",
+        ] {
+            let blst_point = hash_to_g1(message, G1_DST);
+            let blst_affine = G1Affine::from(blst_point);
+            let dusk_point =
+                <dusk_reference::G1Projective as HashToCurve<ExpandMsgXmd<Sha256>>>::hash_to_curve(
+                    message, G1_DST,
+                );
+            let dusk_affine = dusk_reference::G1Affine::from(dusk_point);
+
+            assert!(!bool::from(blst_affine.is_identity()));
+            assert!(bool::from(blst_affine.is_on_curve()));
+            assert!(bool::from(blst_affine.is_torsion_free()));
+            assert_eq!(blst_affine.to_compressed(), dusk_affine.to_compressed());
+            assert!(bool::from(
+                G1Affine::from_compressed(&blst_affine.to_compressed()).is_some()
+            ));
+        }
+    }
+
+    #[test]
+    fn hash_to_g2_matches_dusk_backend() {
+        const G2_DST: &[u8] = b"DUSK_CURVES_TEST_HASH_TO_G2_XMD:SHA-256_SSWU_RO_";
+
+        for message in [
+            b"" as &[u8],
+            b"backend parity",
+            b"dusk-curves hash-to-curve helpers keep downstream crates backend agnostic",
+        ] {
+            let blst_point = hash_to_g2(message, G2_DST);
+            let blst_affine = G2Affine::from(blst_point);
+            let dusk_point =
+                <dusk_reference::G2Projective as HashToCurve<ExpandMsgXmd<Sha256>>>::hash_to_curve(
+                    message, G2_DST,
+                );
+            let dusk_affine = dusk_reference::G2Affine::from(dusk_point);
+
+            assert!(!bool::from(blst_affine.is_identity()));
+            assert!(bool::from(blst_affine.is_on_curve()));
+            assert!(bool::from(blst_affine.is_torsion_free()));
+            assert_eq!(blst_affine.to_compressed(), dusk_affine.to_compressed());
+            assert!(bool::from(
+                G2Affine::from_compressed(&blst_affine.to_compressed()).is_some()
+            ));
         }
     }
 

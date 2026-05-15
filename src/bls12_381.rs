@@ -82,6 +82,20 @@ pub fn hash_to_scalar(bytes: &[u8]) -> Scalar {
     backend::hash_to_scalar(bytes)
 }
 
+/// Hash arbitrary bytes to a G1 point using the supplied domain separation tag.
+#[must_use]
+#[inline]
+pub fn hash_to_g1(message: &[u8], dst: &[u8]) -> G1Projective {
+    backend::hash_to_g1(message, dst)
+}
+
+/// Hash arbitrary bytes to a G2 point using the supplied domain separation tag.
+#[must_use]
+#[inline]
+pub fn hash_to_g2(message: &[u8], dst: &[u8]) -> G2Projective {
+    backend::hash_to_g2(message, dst)
+}
+
 /// Reduce a wide little-endian integer modulo the scalar field order.
 #[must_use]
 #[inline]

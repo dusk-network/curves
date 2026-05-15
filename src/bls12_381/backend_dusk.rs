@@ -5,6 +5,8 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use alloc::vec::Vec;
+use dusk_bls12_381::hash_to_curve::{ExpandMsgXmd, HashToCurve};
+use sha2::Sha256;
 
 // This backend forwards the upstream dusk types directly. The stable
 // backend-portable contract lives in `crate::bls12_381`; any extra inherent
@@ -28,6 +30,18 @@ pub type Scalar = BlsScalar;
 #[inline]
 pub fn hash_to_scalar(bytes: &[u8]) -> Scalar {
     Scalar::hash_to_scalar(bytes)
+}
+
+#[must_use]
+#[inline]
+pub fn hash_to_g1(message: &[u8], dst: &[u8]) -> G1Projective {
+    <G1Projective as HashToCurve<ExpandMsgXmd<Sha256>>>::hash_to_curve(message, dst)
+}
+
+#[must_use]
+#[inline]
+pub fn hash_to_g2(message: &[u8], dst: &[u8]) -> G2Projective {
+    <G2Projective as HashToCurve<ExpandMsgXmd<Sha256>>>::hash_to_curve(message, dst)
 }
 
 #[must_use]
