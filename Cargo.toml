@@ -37,7 +37,7 @@ bls-backend-blst = ["dep:blst", "dep:dusk-bls12_381", "dusk-bls12_381/alloc", "d
 # Forward dusk-bls12_381 features where this crate's public surface depends on them.
 default-bls = ["bls-backend-dusk", "dusk-bls12_381/default"]
 parallel = ["dusk-bls12_381/parallel"]
-rkyv-impl = ["dusk-bls12_381/rkyv-impl", "dep:rkyv", "dep:bytecheck", "rkyv/size_64", "rkyv/validation"]
+rkyv-impl = ["dusk-bls12_381/rkyv-impl", "dep:rkyv", "dep:bytecheck", "rkyv/size_32", "rkyv/validation"]
 serde = ["dep:hex", "dep:serde", "dusk-bls12_381/serde"]
 zeroize = ["dep:zeroize"]
 
