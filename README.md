@@ -8,8 +8,8 @@
 
 <p>
 	<img alt="Rust stable" src="https://img.shields.io/badge/rust-stable-f74c00?logo=rust&logoColor=white">
-    <a href="./Cargo.toml">
-		<img alt="Version 0.1.0" src="https://img.shields.io/badge/version-0.1.0-2563eb">
+    <a href="https://crates.io/crates/dusk-curves">
+		<img alt="crates.io" src="https://img.shields.io/crates/v/dusk-curves.svg">
 	</a>
 	<img alt="License MPL-2.0" src="https://img.shields.io/badge/license-MPL--2.0-eab308">
 </p>
@@ -176,11 +176,11 @@ Add the dependency to `Cargo.toml`:
 ```toml
 # Default backend: dusk-bls12_381
 [dependencies]
-dusk-curves = "0.1"
+dusk-curves = "0.2"
 
 # Alternate backend: blst
 [dependencies]
-dusk-curves = { version = "0.1", default-features = false, features = ["bls-backend-blst"] }
+dusk-curves = { version = "0.2", default-features = false, features = ["bls-backend-blst"] }
 ```
 
 Import the curve primitives:
