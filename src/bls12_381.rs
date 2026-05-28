@@ -82,6 +82,40 @@ pub fn hash_to_scalar(bytes: &[u8]) -> Scalar {
     backend::hash_to_scalar(bytes)
 }
 
+/// Hash arbitrary bytes to a G1 point using the supplied domain separation tag.
+///
+/// This uses the RFC 9380 random-oracle suite
+/// `BLS12381G1_XMD:SHA-256_SSWU_RO_`. The basic hash-to-curve variant is used:
+/// no augmentation input is supplied. Signature schemes that require an
+/// augmented `_AUG_` suite must perform that construction outside this helper.
+///
+/// The returned point is in the prime-order G1 subgroup after the suite's
+/// cofactor-clearing step. The supplied `dst` is used as the RFC 9380 domain
+/// separation tag. DSTs of 1 to 255 bytes are preferred; longer DSTs are
+/// rehashed according to the RFC 9380 long-DST convention by both backends.
+#[must_use]
+#[inline]
+pub fn hash_to_g1(message: &[u8], dst: &[u8]) -> G1Projective {
+    backend::hash_to_g1(message, dst)
+}
+
+/// Hash arbitrary bytes to a G2 point using the supplied domain separation tag.
+///
+/// This uses the RFC 9380 random-oracle suite
+/// `BLS12381G2_XMD:SHA-256_SSWU_RO_`. The basic hash-to-curve variant is used:
+/// no augmentation input is supplied. Signature schemes that require an
+/// augmented `_AUG_` suite must perform that construction outside this helper.
+///
+/// The returned point is in the prime-order G2 subgroup after the suite's
+/// cofactor-clearing step. The supplied `dst` is used as the RFC 9380 domain
+/// separation tag. DSTs of 1 to 255 bytes are preferred; longer DSTs are
+/// rehashed according to the RFC 9380 long-DST convention by both backends.
+#[must_use]
+#[inline]
+pub fn hash_to_g2(message: &[u8], dst: &[u8]) -> G2Projective {
+    backend::hash_to_g2(message, dst)
+}
+
 /// Reduce a wide little-endian integer modulo the scalar field order.
 #[must_use]
 #[inline]

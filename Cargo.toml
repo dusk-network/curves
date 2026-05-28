@@ -25,6 +25,7 @@ group = { version = "0.13", default-features = false, optional = true }
 hex = { version = "0.4", default-features = false, optional = true }
 rand_core = { version = "0.6", default-features = false, optional = true }
 serde = { version = "1", default-features = false, features = ["alloc"], optional = true }
+sha2 = { version = "0.9", default-features = false, optional = true }
 subtle = { version = "2", default-features = false, optional = true }
 zeroize = { version = "1", default-features = false, optional = true }
 rkyv = { version = "0.7", optional = true, default-features = false }
@@ -32,7 +33,11 @@ bytecheck = { version = "0.6", optional = true, default-features = false }
 
 [features]
 default = ["bls-backend-dusk"]
-bls-backend-dusk = ["dep:dusk-bls12_381", "dusk-bls12_381/groups", "dusk-bls12_381/pairings", "dusk-bls12_381/alloc"]
+# The upstream `experimental` feature gates the RFC 9380 hash-to-curve module
+# used by this crate. It is stable cryptographic behavior for dusk-curves, but
+# upstream does not guarantee API compatibility; changed outputs would produce
+# different points for the same input. The RFC vector tests pin that behavior.
+bls-backend-dusk = ["dep:dusk-bls12_381", "dep:sha2", "dusk-bls12_381/groups", "dusk-bls12_381/pairings", "dusk-bls12_381/alloc", "dusk-bls12_381/experimental"]
 bls-backend-blst = ["dep:blst", "dep:dusk-bls12_381", "dusk-bls12_381/alloc", "dusk-bls12_381/groups", "dep:group", "dep:rand_core", "dep:subtle"]
 # Forward dusk-bls12_381 features where this crate's public surface depends on them.
 default-bls = ["bls-backend-dusk", "dusk-bls12_381/default"]
@@ -43,8 +48,11 @@ zeroize = ["dep:zeroize"]
 
 [dev-dependencies]
 criterion = "0.5"
-dusk-bls12_381 = { version = "0.14", default-features = false, features = ["alloc", "groups", "pairings"] }
+# The blst parity tests use dusk-bls12_381 as the reference implementation for
+# the same hash-to-curve behavior, so they need the same upstream feature.
+dusk-bls12_381 = { version = "0.14", default-features = false, features = ["alloc", "groups", "pairings", "experimental"] }
 serde_json = "1"
+sha2 = { version = "0.9", default-features = false }
 
 [[bench]]
 name = "bls12_381"
