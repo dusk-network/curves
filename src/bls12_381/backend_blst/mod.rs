@@ -257,7 +257,9 @@ mod tests {
     use super::*;
     use alloc::vec::Vec;
     use dusk_bls12_381 as dusk_reference;
-    use dusk_reference::hash_to_curve::{ExpandMsgXmd, HashToCurve};
+    use dusk_reference::hash_to_curve::{
+        ExpandMessageState, ExpandMsgXmd, HashToCurve, InitExpandMessage,
+    };
     use sha2::Sha256;
 
     const G1_RO_DST: &[u8] = b"QUUX-V01-CS02-with-BLS12381G1_XMD:SHA-256_SSWU_RO_";
@@ -269,6 +271,18 @@ mod tests {
             *byte = (byte_index as u8).wrapping_mul(17).wrapping_add(3);
         }
         bytes
+    }
+
+    fn oversize_dst(prefix: &[u8]) -> Vec<u8> {
+        let mut dst = Vec::from(prefix);
+        dst.resize(300, b'1');
+        dst
+    }
+
+    fn rfc9380_long_xmd_dst() -> Vec<u8> {
+        let mut dst = Vec::from(&b"QUUX-V01-CS02-with-expander-SHA256-128-long-DST-"[..]);
+        dst.resize(256, b'1');
+        dst
     }
 
     fn decode_hex<const N: usize>(hex: &str) -> [u8; N] {
@@ -288,6 +302,42 @@ mod tests {
             b'A'..=b'F' => digit - b'A' + 10,
             _ => panic!("invalid hex digit"),
         }
+    }
+
+    fn assert_hash_to_g1_matches_dusk(message: &[u8], dst: &[u8]) {
+        let blst_point = hash_to_g1(message, dst);
+        let blst_affine = G1Affine::from(blst_point);
+        let dusk_point =
+            <dusk_reference::G1Projective as HashToCurve<ExpandMsgXmd<Sha256>>>::hash_to_curve(
+                message, dst,
+            );
+        let dusk_affine = dusk_reference::G1Affine::from(dusk_point);
+
+        assert!(!bool::from(blst_affine.is_identity()));
+        assert!(bool::from(blst_affine.is_on_curve()));
+        assert!(bool::from(blst_affine.is_torsion_free()));
+        assert_eq!(blst_affine.to_compressed(), dusk_affine.to_compressed());
+        assert!(bool::from(
+            G1Affine::from_compressed(&blst_affine.to_compressed()).is_some()
+        ));
+    }
+
+    fn assert_hash_to_g2_matches_dusk(message: &[u8], dst: &[u8]) {
+        let blst_point = hash_to_g2(message, dst);
+        let blst_affine = G2Affine::from(blst_point);
+        let dusk_point =
+            <dusk_reference::G2Projective as HashToCurve<ExpandMsgXmd<Sha256>>>::hash_to_curve(
+                message, dst,
+            );
+        let dusk_affine = dusk_reference::G2Affine::from(dusk_point);
+
+        assert!(!bool::from(blst_affine.is_identity()));
+        assert!(bool::from(blst_affine.is_on_curve()));
+        assert!(bool::from(blst_affine.is_torsion_free()));
+        assert_eq!(blst_affine.to_compressed(), dusk_affine.to_compressed());
+        assert!(bool::from(
+            G2Affine::from_compressed(&blst_affine.to_compressed()).is_some()
+        ));
     }
 
     fn assert_g1_interchanges_with_dusk(
@@ -464,6 +514,31 @@ mod tests {
     }
 
     #[test]
+    fn expand_message_xmd_matches_rfc9380_long_dst_vector() {
+        let dst = rfc9380_long_xmd_dst();
+        assert!(dst.len() > 255);
+
+        let mut expanded = ExpandMsgXmd::<Sha256>::init_expand(b"abc", &dst, 0x20).into_vec();
+        assert_eq!(
+            expanded,
+            decode_hex::<32>("52dbf4f36cf560fca57dedec2ad924ee9c266341d8f3d6afe5171733b16bbb12")
+        );
+
+        expanded = ExpandMsgXmd::<Sha256>::init_expand(b"", &dst, 0x80).into_vec();
+        assert_eq!(
+            expanded,
+            decode_hex::<128>(concat!(
+                "14604d85432c68b757e485c8894db3117992fc57e0e136f7",
+                "1ad987f789a0abc287c47876978e2388a02af86b1e8d134",
+                "2e5ce4f7aaa07a87321e691f6fba7e0072eecc1218aebb",
+                "89fb14a0662322d5edbd873f0eb35260145cd4e64f748",
+                "c5dfe60567e126604bcab1a3ee2dc0778102ae8a5cfd",
+                "1429ebc0fa6bf1a53c36f55dfc",
+            ))
+        );
+    }
+
+    #[test]
     fn hash_to_g1_matches_dusk_backend() {
         const G1_DST: &[u8] = b"DUSK_CURVES_TEST_HASH_TO_G1_XMD:SHA-256_SSWU_RO_";
 
@@ -472,22 +547,12 @@ mod tests {
             b"backend parity",
             b"dusk-curves hash-to-curve helpers keep downstream crates backend agnostic",
         ] {
-            let blst_point = hash_to_g1(message, G1_DST);
-            let blst_affine = G1Affine::from(blst_point);
-            let dusk_point =
-                <dusk_reference::G1Projective as HashToCurve<ExpandMsgXmd<Sha256>>>::hash_to_curve(
-                    message, G1_DST,
-                );
-            let dusk_affine = dusk_reference::G1Affine::from(dusk_point);
-
-            assert!(!bool::from(blst_affine.is_identity()));
-            assert!(bool::from(blst_affine.is_on_curve()));
-            assert!(bool::from(blst_affine.is_torsion_free()));
-            assert_eq!(blst_affine.to_compressed(), dusk_affine.to_compressed());
-            assert!(bool::from(
-                G1Affine::from_compressed(&blst_affine.to_compressed()).is_some()
-            ));
+            assert_hash_to_g1_matches_dusk(message, G1_DST);
         }
+
+        let long_dst = oversize_dst(b"DUSK_CURVES_TEST_HASH_TO_G1_XMD:SHA-256_SSWU_RO_LONG_DST_");
+        assert!(long_dst.len() > 255);
+        assert_hash_to_g1_matches_dusk(b"backend parity with an oversize DST", &long_dst);
     }
 
     #[test]
@@ -499,22 +564,12 @@ mod tests {
             b"backend parity",
             b"dusk-curves hash-to-curve helpers keep downstream crates backend agnostic",
         ] {
-            let blst_point = hash_to_g2(message, G2_DST);
-            let blst_affine = G2Affine::from(blst_point);
-            let dusk_point =
-                <dusk_reference::G2Projective as HashToCurve<ExpandMsgXmd<Sha256>>>::hash_to_curve(
-                    message, G2_DST,
-                );
-            let dusk_affine = dusk_reference::G2Affine::from(dusk_point);
-
-            assert!(!bool::from(blst_affine.is_identity()));
-            assert!(bool::from(blst_affine.is_on_curve()));
-            assert!(bool::from(blst_affine.is_torsion_free()));
-            assert_eq!(blst_affine.to_compressed(), dusk_affine.to_compressed());
-            assert!(bool::from(
-                G2Affine::from_compressed(&blst_affine.to_compressed()).is_some()
-            ));
+            assert_hash_to_g2_matches_dusk(message, G2_DST);
         }
+
+        let long_dst = oversize_dst(b"DUSK_CURVES_TEST_HASH_TO_G2_XMD:SHA-256_SSWU_RO_LONG_DST_");
+        assert!(long_dst.len() > 255);
+        assert_hash_to_g2_matches_dusk(b"backend parity with an oversize DST", &long_dst);
     }
 
     #[test]
