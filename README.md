@@ -219,7 +219,7 @@ assert!(pairing_product_is_identity(&[(&g1, &g2), (&g1, &minus_g2)]));
 - `default-bls` — forwards the default feature set of `dusk-bls12_381`
 - `parallel` — enables Rayon parallelism on the dusk backend only
 - `rkyv-impl` — enables `rkyv` archiving, validation, and serialization; archived bytes are backend-specific
-- `zeroize` — enables zeroization support in this crate
+- `zeroize` — enables zeroization support in this crate, including the re-exported `BlsScalar`
 
 ## 🛠 Development
 
