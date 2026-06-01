@@ -12,6 +12,7 @@ keywords = ["bls12-381", "elliptic-curves", "pairing", "cryptography"]
 categories = ["cryptography", "mathematics"]
 include = [
 	"/Cargo.toml",
+	"/CHANGELOG.md",
 	"/LICENSE",
 	"/README.md",
 	"/src/**",
