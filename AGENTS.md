@@ -42,7 +42,9 @@ If a change trades clarity or safety for cleverness, do not make it.
 - The two backend features are mutually exclusive.
 - `parallel` is dusk-only.
 - `rkyv-impl` is supported with both backends.
-- `zeroize` is supported independently of backend.
+- `zeroize` is supported independently of backend and must forward
+  `dusk-bls12_381/zeroize` because `BlsScalar` is re-exported from
+  `dusk-bls12_381` in both backends.
 - `rkyv` archived bytes are backend-specific and are not a portable storage
   format across `bls-backend-dusk` and `bls-backend-blst`, even when the facade
   type names are the same. Persisted archives must be externally tagged with a

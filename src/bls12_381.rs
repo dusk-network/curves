@@ -145,3 +145,18 @@ pub fn multi_miller_loop_result(terms: &[(&G1Affine, &G2Prepared)]) -> Gt {
 pub fn pairing_product_is_identity(terms: &[(&G1Affine, &G2Affine)]) -> bool {
     backend::pairing_product_is_identity(terms)
 }
+
+#[cfg(all(test, feature = "zeroize"))]
+mod tests {
+    use super::BlsScalar;
+    use zeroize::Zeroize;
+
+    #[test]
+    fn bls_scalar_zeroize_is_forwarded() {
+        let mut scalar = BlsScalar::from(7u64);
+
+        scalar.zeroize();
+
+        assert_eq!(scalar, BlsScalar::zero());
+    }
+}

@@ -44,7 +44,7 @@ default-bls = ["bls-backend-dusk", "dusk-bls12_381/default"]
 parallel = ["dusk-bls12_381/parallel"]
 rkyv-impl = ["dusk-bls12_381/rkyv-impl", "dep:rkyv", "dep:bytecheck", "rkyv/size_32", "rkyv/validation"]
 serde = ["dep:hex", "dep:serde", "dusk-bls12_381/serde"]
-zeroize = ["dep:zeroize"]
+zeroize = ["dep:zeroize", "dusk-bls12_381/zeroize"]
 
 [dev-dependencies]
 criterion = "0.5"
