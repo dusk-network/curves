@@ -1,0 +1,52 @@
+name: Release-plz
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: Release command to run
+        required: true
+        type: choice
+        options:
+          - release-pr
+          - publish
+        default: release-pr
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+jobs:
+  release_pr:
+    name: Create release PR
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.command == 'release-pr' }}
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: dusk-network/.github/.github/workflows/rust-release-plan.yml@072d477abf79724f72b96a19996ce1cb9357e0cb
+
+  release_check:
+    name: Validate release PR
+    if: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'release-plz-') }}
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: dusk-network/.github/.github/workflows/rust-release-check.yml@072d477abf79724f72b96a19996ce1cb9357e0cb
+    with:
+      publish-packages: dusk-curves
+      workflow-scripts-ref: 072d477abf79724f72b96a19996ce1cb9357e0cb
+
+  publish:
+    name: Publish crates
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.command == 'publish' }}
+    permissions:
+      contents: write
+      pull-requests: read
+      id-token: write
+    uses: dusk-network/.github/.github/workflows/rust-publish-crates.yml@072d477abf79724f72b96a19996ce1cb9357e0cb
+    with:
+      publish-packages: dusk-curves
+      environment: crates-io
+      workflow-scripts-ref: 072d477abf79724f72b96a19996ce1cb9357e0cb
