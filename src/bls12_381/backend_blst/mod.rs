@@ -683,17 +683,21 @@ mod tests {
     fn pairing_identity_checks_match_dusk_backend() {
         let scalar = BlsScalar::from(11u64);
         let blst_g1 = G1Affine::generator();
+        let blst_g1_identity = G1Affine::identity();
         let blst_neg_g1 = -blst_g1;
         let blst_g1_scaled = G1Affine::from(G1Projective::generator() * scalar);
         let blst_g2 = G2Affine::generator();
+        let blst_g2_identity = G2Affine::identity();
         let blst_g2_scaled = G2Affine::from(G2Projective::generator() * scalar);
         let blst_neg_g2_scaled = -blst_g2_scaled;
 
         let dusk_g1 = dusk_reference::G1Affine::generator();
+        let dusk_g1_identity = dusk_reference::G1Affine::identity();
         let dusk_neg_g1 = -dusk_g1;
         let dusk_g1_scaled =
             dusk_reference::G1Affine::from(dusk_reference::G1Projective::generator() * scalar);
         let dusk_g2 = dusk_reference::G2Affine::generator();
+        let dusk_g2_identity = dusk_reference::G2Affine::identity();
         let dusk_g2_scaled =
             dusk_reference::G2Affine::from(dusk_reference::G2Projective::generator() * scalar);
         let dusk_neg_g2_scaled = -dusk_g2_scaled;
@@ -705,6 +709,18 @@ mod tests {
         assert_eq!(
             pairing_product_is_identity(&[(&blst_g1, &blst_g2)]),
             dusk_pairing_product_is_identity(&[(&dusk_g1, &dusk_g2)])
+        );
+        assert_eq!(
+            pairing_product_is_identity(&[(&blst_g1_identity, &blst_g2)]),
+            dusk_pairing_product_is_identity(&[(&dusk_g1_identity, &dusk_g2)])
+        );
+        assert_eq!(
+            pairing_product_is_identity(&[(&blst_g1, &blst_g2_identity)]),
+            dusk_pairing_product_is_identity(&[(&dusk_g1, &dusk_g2_identity)])
+        );
+        assert_eq!(
+            pairing_product_is_identity(&[(&blst_g1_identity, &blst_g2_identity)]),
+            dusk_pairing_product_is_identity(&[(&dusk_g1_identity, &dusk_g2_identity)])
         );
         assert_eq!(
             pairing_product_is_identity(&[(&blst_g1, &blst_g2), (&blst_neg_g1, &blst_g2)]),

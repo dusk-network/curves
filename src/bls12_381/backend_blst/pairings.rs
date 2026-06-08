@@ -694,15 +694,25 @@ pub fn pairing_product_is_identity(terms: &[(&G1Affine, &G2Affine)]) -> bool {
         return true;
     }
 
-    let ps: Vec<::blst::blst_p1_affine> = terms.iter().map(|(g1, _)| g1.0).collect();
-    let qs: Vec<::blst::blst_p2_affine> = terms
-        .iter()
-        .map(|(_, g2)| G2Prepared::from(**g2).0)
-        .collect();
+    let mut pairing = None;
+    for &(g1, g2) in terms {
+        // Identity terms contribute 1 to the product. Skipping them also keeps
+        // all-identity products from reaching finalverify with an empty context.
+        if bool::from(g1.is_identity()) || bool::from(g2.is_identity()) {
+            continue;
+        }
 
-    let fp12 = ::blst::blst_fp12::miller_loop_n(qs.as_slice(), ps.as_slice());
-    let gt = fp12.final_exp();
-    ::blst::blst_fp12::finalverify(&gt, unsafe { &*::blst::blst_fp12_one() })
+        pairing
+            .get_or_insert_with(|| ::blst::Pairing::new(false, &[]))
+            .raw_aggregate(&g2.0, &g1.0);
+    }
+
+    let Some(mut pairing) = pairing else {
+        return true;
+    };
+
+    pairing.commit();
+    pairing.finalverify(None)
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────
@@ -743,11 +753,28 @@ mod tests {
 
     #[test]
     fn pairing_g1_neg_g1_is_identity() {
-        // e(G1, G2) · e(-G1, G2) == 1  (exercises miller loop + final_exp)
+        // e(G1, G2) · e(-G1, G2) == 1
         let g1 = G1Affine::generator();
         let neg_g1 = -g1;
         let g2 = G2Affine::generator();
         assert!(pairing_product_is_identity(&[(&g1, &g2), (&neg_g1, &g2)]));
+    }
+
+    #[test]
+    fn pairing_identity_terms_are_identity() {
+        let g1 = G1Affine::generator();
+        let g1_identity = G1Affine::identity();
+        let g2 = G2Affine::generator();
+        let g2_identity = G2Affine::identity();
+
+        assert!(pairing_product_is_identity(&[(&g1_identity, &g2)]));
+        assert!(pairing_product_is_identity(&[(&g1, &g2_identity)]));
+        assert!(pairing_product_is_identity(&[(&g1_identity, &g2_identity)]));
+        assert!(pairing_product_is_identity(&[
+            (&g1_identity, &g2),
+            (&g1, &g2_identity),
+            (&g1_identity, &g2_identity),
+        ]));
     }
 
     #[test]

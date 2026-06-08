@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Improve the blst backend `pairing_product_is_identity` path by using BLST's
+  raw pairing aggregation and final verification directly, avoiding redundant
+  final exponentiation and small-product `miller_loop_n` threadpool overhead.
+
 ## [0.2.1] - 2026-06-01
 
 ### Added
