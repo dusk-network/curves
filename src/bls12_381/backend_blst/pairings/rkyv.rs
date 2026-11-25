@@ -23,12 +23,10 @@ const FP_MODULUS: [u64; 6] = [
     0x1a01_11ea_397f_e69a,
 ];
 
-fn fp_raw_bytes_are_canonical(bytes: &[u8]) -> bool {
+fn fp_raw_bytes_are_canonical(bytes: &[u8; 48]) -> bool {
     let mut limbs = [0u64; 6];
-    let mut word = [0u8; 8];
-    for (chunk, limb) in bytes.chunks_exact(8).zip(limbs.iter_mut()) {
-        word.copy_from_slice(chunk);
-        *limb = u64::from_le_bytes(word);
+    for (chunk, limb) in bytes.as_chunks::<8>().0.iter().zip(limbs.iter_mut()) {
+        *limb = u64::from_le_bytes(*chunk);
     }
 
     for (&limb, &modulus_limb) in limbs.iter().zip(FP_MODULUS.iter()).rev() {
@@ -43,7 +41,11 @@ fn fp_raw_bytes_are_canonical(bytes: &[u8]) -> bool {
 }
 
 fn fp12_raw_bytes_are_canonical(bytes: &[u8; FP12_RAW_SIZE]) -> bool {
-    bytes.chunks_exact(48).all(fp_raw_bytes_are_canonical)
+    bytes
+        .as_chunks::<48>()
+        .0
+        .iter()
+        .all(fp_raw_bytes_are_canonical)
 }
 
 fn fp12_raw_bytes_are_nonzero(bytes: &[u8; FP12_RAW_SIZE]) -> bool {
@@ -124,7 +126,9 @@ fn g2_prepared_raw_bytes_are_valid(bytes: &[u8; G2Affine::RAW_SIZE]) -> bool {
     let affine = unsafe { G2Affine::from_slice_unchecked(bytes) };
 
     bytes[..G2Affine::RAW_SIZE - 1]
-        .chunks_exact(48)
+        .as_chunks::<48>()
+        .0
+        .iter()
         .all(fp_raw_bytes_are_canonical)
         && bool::from(affine.is_on_curve())
         && !bool::from(affine.is_identity())

@@ -53,7 +53,7 @@ use backend_dusk as backend;
 /// are not part of the portability guarantee of this facade.
 pub use backend::{
     BlsScalar, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, GENERATOR, Gt,
-    MillerLoopResult, ROOT_OF_UNITY, Scalar, TWO_ADACITY,
+    InsufficientBases, MillerLoopResult, ROOT_OF_UNITY, Scalar, TWO_ADACITY,
 };
 
 #[cfg(feature = "rkyv-impl")]
@@ -124,10 +124,30 @@ pub fn scalar_from_wide(bytes: &[u8; 64]) -> Scalar {
 }
 
 /// Variable-base multiscalar multiplication over G1.
+///
+/// Scalars are paired with the corresponding prefix of `points`; trailing
+/// points are ignored. Variable-time with respect to `scalars`.
+///
+/// # Panics
+///
+/// Panics if there are fewer points than scalars. Use
+/// [`try_msm_variable_base`] to handle that case as an error.
 #[must_use]
 #[inline]
 pub fn msm_variable_base(points: &[G1Affine], scalars: &[Scalar]) -> G1Projective {
     backend::msm_variable_base(points, scalars)
+}
+
+/// Variable-base multiscalar multiplication over G1, rejecting insufficient bases.
+///
+/// Same as [`msm_variable_base`], but returns [`InsufficientBases`] instead of
+/// panicking when there are fewer points than scalars.
+#[inline]
+pub fn try_msm_variable_base(
+    points: &[G1Affine],
+    scalars: &[Scalar],
+) -> Result<G1Projective, InsufficientBases> {
+    backend::try_msm_variable_base(points, scalars)
 }
 
 /// Compute the multi-Miller loop over `(G1Affine, G2Prepared)` pairs and apply

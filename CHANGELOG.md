@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `try_msm_variable_base` and `InsufficientBases` [#33]
+
+### Changed
+
+- Update `dusk-bls12_381` to 0.16 and raise the MSRV to 1.96.1 [#33]
+- Make `msm_variable_base` panic when there are fewer points than scalars
+  [#33]
+- Make a zero `Gt` compare unequal to every `Gt` in the blst backend [#33]
+- Reject archived points with non-canonical field limbs or an identity byte
+  other than 0 or 1 in the dusk backend [#33]
+
+### Removed
+
+- Remove Serde `Deserialize` for `G2Prepared` in the blst backend [#33]
+
 ### Fixed
 
 - Fix blst pairings with the identity point, which did not equal 1 [#32]
@@ -77,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#24]: https://github.com/dusk-network/curves/issues/24
 [#26]: https://github.com/dusk-network/curves/issues/26
 [#32]: https://github.com/dusk-network/curves/issues/32
+[#33]: https://github.com/dusk-network/curves/issues/33
 
 <!-- PRs -->
 [#1]: https://github.com/dusk-network/curves/pull/1

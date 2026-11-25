@@ -17,7 +17,7 @@ use group::{Curve, Group, GroupEncoding, UncompressedEncoding, WnafGroup};
 use rand_core::RngCore;
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption};
 
-use super::{BlsScalar, G1Compressed, G1Uncompressed};
+use super::{BlsScalar, G1Compressed, G1Uncompressed, InsufficientBases};
 
 #[cfg(feature = "rkyv-impl")]
 mod rkyv;
@@ -970,11 +970,31 @@ impl ::zeroize::DefaultIsZeroes for G1Projective {}
 // ── Variable-base MSM ───────────────────────────────────────────────────────
 
 /// Variable-base multi-scalar multiplication over G1 (blst-accelerated).
+///
+/// Panics when there are fewer points than scalars, matching
+/// `dusk_bls12_381::multiscalar_mul::msm_variable_base`.
 #[must_use]
 pub fn msm_variable_base(points: &[G1Affine], scalars: &[BlsScalar]) -> G1Projective {
-    let n = core::cmp::min(points.len(), scalars.len());
+    try_msm_variable_base(points, scalars)
+        .expect("multiscalar multiplication has fewer points than scalars")
+}
+
+/// Variable-base multi-scalar multiplication over G1 (blst-accelerated),
+/// rejecting insufficient bases.
+///
+/// Scalars are paired with the corresponding prefix of `points`; trailing
+/// points are ignored, matching
+/// `dusk_bls12_381::multiscalar_mul::try_msm_variable_base`.
+pub fn try_msm_variable_base(
+    points: &[G1Affine],
+    scalars: &[BlsScalar],
+) -> Result<G1Projective, InsufficientBases> {
+    if points.len() < scalars.len() {
+        return Err(InsufficientBases);
+    }
+    let n = scalars.len();
     if n == 0 {
-        return G1Projective::identity();
+        return Ok(G1Projective::identity());
     }
 
     let blst_points: Vec<::blst::blst_p1_affine> = points[..n].iter().map(|p| p.0).collect();
@@ -985,7 +1005,7 @@ pub fn msm_variable_base(points: &[G1Affine], scalars: &[BlsScalar]) -> G1Projec
     }
 
     let out = blst_points.as_slice().mult(&scalar_bytes, 255);
-    G1Projective(out)
+    Ok(G1Projective(out))
 }
 
 // ── Serde support ───────────────────────────────────────────────────────────

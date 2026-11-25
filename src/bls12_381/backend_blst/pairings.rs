@@ -364,7 +364,11 @@ impl fmt::Display for Gt {
 
 impl ConstantTimeEq for Gt {
     fn ct_eq(&self, other: &Self) -> Choice {
-        self.0.to_bendian().ct_eq(&other.0.to_bendian())
+        // Zero is not a group element; a failed final exponentiation produces
+        // it. As in dusk-bls12_381, it never equals any value, itself
+        // included, so comparing two failed pairings fails as well.
+        let lhs = self.0.to_bendian();
+        lhs.ct_eq(&other.0.to_bendian()) & !lhs.ct_eq(&[0u8; 48 * 12])
     }
 }
 
@@ -599,6 +603,10 @@ impl fmt::Debug for MillerLoopResult {
 
 impl MillerLoopResult {
     /// Perform the final exponentiation to obtain a Gt element.
+    ///
+    /// A zero Miller loop result has no inverse. As in dusk-bls12_381, this
+    /// returns a zero `Gt`, which compares unequal to every `Gt`, itself
+    /// included.
     #[must_use]
     pub fn final_exponentiation(&self) -> Gt {
         Gt(self.0.final_exp())
@@ -624,42 +632,17 @@ impl ::zeroize::DefaultIsZeroes for MillerLoopResult {}
 
 // ── serde ────────────────────────────────────────────────────────────────────
 
+// Serialization only: as in dusk-bls12_381, decode a checked `G2Affine` and
+// convert it at untrusted boundaries instead of deserializing `G2Prepared`.
 #[cfg(feature = "serde")]
 mod serde_support {
-    extern crate alloc;
-
-    use alloc::format;
-    use alloc::string::{String, ToString};
-
-    use serde::de::Error as SerdeError;
-    use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{self, Serialize, Serializer};
 
     use super::*;
-
-    fn decode_hex<'de, D, const N: usize>(deserializer: D) -> Result<[u8; N], D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        let decoded = hex::decode(&s).map_err(SerdeError::custom)?;
-        let decoded_len = decoded.len();
-        decoded
-            .try_into()
-            .map_err(|_| SerdeError::invalid_length(decoded_len, &N.to_string().as_str()))
-    }
 
     impl Serialize for G2Prepared {
         fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
             hex::encode(dusk_bytes::Serializable::to_bytes(&G2Affine(self.0))).serialize(serializer)
-        }
-    }
-
-    impl<'de> Deserialize<'de> for G2Prepared {
-        fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-            let bytes = decode_hex::<D, 96>(deserializer)?;
-            let affine = <G2Affine as dusk_bytes::Serializable<96>>::from_bytes(&bytes)
-                .map_err(|err| SerdeError::custom(format!("{err:?}")))?;
-            Ok(Self::from(affine))
         }
     }
 }
@@ -877,11 +860,98 @@ mod tests {
 
     #[cfg(feature = "serde")]
     #[test]
-    fn g2_prepared_serde_roundtrip() {
+    fn g2_prepared_serializes_affine_point() {
         let g2 = G2Affine::generator();
         let prepared = G2Prepared::from(g2);
-        let json = serde_json::to_string(&prepared).unwrap();
-        let back: G2Prepared = serde_json::from_str(&json).unwrap();
-        assert_eq!(G2Affine(back.0), g2);
+        assert_eq!(
+            serde_json::to_string(&prepared).unwrap(),
+            serde_json::to_string(&g2).unwrap()
+        );
+    }
+
+    fn g2_order_13_point() -> G2Affine {
+        // (h2 * r) / 13^2, big-endian: maps a point of E'(Fp2) into its
+        // 13-torsion, which is not in the prime-order subgroup.
+        const N_OVER_169: &str = concat!(
+            "04005449cda731a7136c440a0c65b728ba1c1fa6b6708356f3b9bdc84396cab3",
+            "3907d71557a7d33677f5d45f7cedb8cfdac10ff1fc5b48d6461e907737d78e96",
+            "568f2d18c750b4b3ca5c33c3fd8ff8a70629888281914529f4e3380941cfdd",
+        );
+        let mut scalar: Vec<u8> = N_OVER_169
+            .as_bytes()
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u8::from_str_radix(core::str::from_utf8(pair).unwrap(), 16).unwrap())
+            .collect();
+        scalar.reverse();
+
+        (0..=u8::MAX)
+            .find_map(|x| {
+                let mut bytes = [0u8; 96];
+                bytes[0] = 0x80;
+                bytes[95] = x;
+                let point = Option::<G2Affine>::from(G2Affine::from_compressed_unchecked(&bytes))?;
+                let mut projective = ::blst::blst_p2::default();
+                let mut torsion = ::blst::blst_p2::default();
+                let mut affine = ::blst::blst_p2_affine::default();
+                unsafe {
+                    ::blst::blst_p2_from_affine(&raw mut projective, &raw const point.0);
+                    ::blst::blst_p2_mult(
+                        &raw mut torsion,
+                        &raw const projective,
+                        scalar.as_ptr(),
+                        scalar.len() * 8,
+                    );
+                    ::blst::blst_p2_to_affine(&raw mut affine, &raw const torsion);
+                }
+                let torsion = G2Affine(affine);
+                (!bool::from(torsion.is_identity())).then_some(torsion)
+            })
+            .unwrap()
+    }
+
+    #[test]
+    fn order_13_g2_pairing_matches_dusk() {
+        let q = g2_order_13_point();
+        assert!(bool::from(q.is_on_curve()));
+        assert!(!bool::from(q.is_torsion_free()));
+        assert!(bool::from(
+            (super::super::G2Projective::from(q) * BlsScalar::from(13u64)).is_identity()
+        ));
+
+        let g1 = G1Affine::generator();
+        let gt = multi_miller_loop_result(&[(&g1, &G2Prepared::from(q))]);
+        assert_ne!(gt, gt);
+        assert_ne!(gt, Gt::identity());
+        assert!(!pairing_product_is_identity(&[(&g1, &q)]));
+
+        let dusk_q =
+            dusk_bls12_381::G2Affine::from_uncompressed_unchecked(&q.to_uncompressed()).unwrap();
+        let dusk_gt = dusk_bls12_381::multi_miller_loop(&[(
+            &dusk_bls12_381::G1Affine::generator(),
+            &dusk_bls12_381::G2Prepared::from(dusk_q),
+        )])
+        .final_exponentiation();
+        assert_ne!(dusk_gt, dusk_gt);
+        assert_ne!(dusk_gt, dusk_bls12_381::Gt::identity());
+    }
+
+    #[test]
+    fn zero_miller_loop_result_gives_zero_gt() {
+        // `blst_fp12::default()` is one, so build zero from the field types.
+        let zero_fp12 = ::blst::blst_fp12 {
+            fp6: [::blst::blst_fp6::default(); 2],
+        };
+        let zero = MillerLoopResult(zero_fp12).final_exponentiation();
+        let zero_again = MillerLoopResult(zero_fp12).final_exponentiation();
+
+        assert_eq!(zero.0.to_bendian(), [0u8; 48 * 12]);
+        assert_ne!(zero, zero);
+        assert_ne!(zero, zero_again);
+        assert_ne!(zero, Gt::identity());
+        assert_ne!(Gt::identity(), zero);
+        assert!(!bool::from(<Gt as Group>::is_identity(&zero)));
+        assert_eq!(Gt::identity(), Gt::identity());
     }
 }

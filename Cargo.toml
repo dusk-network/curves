@@ -2,7 +2,7 @@
 name = "dusk-curves"
 version = "0.2.1"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.96.1"
 license = "MPL-2.0"
 description = "Backend-agnostic elliptic curve primitives"
 documentation = "https://docs.rs/dusk-curves"
@@ -21,7 +21,7 @@ include = [
 [dependencies]
 dusk-bytes = "0.1"
 blst = { version = "0.3", default-features = false, optional = true }
-dusk-bls12_381 = { version = "0.14", default-features = false, optional = true }
+dusk-bls12_381 = { version = "0.16", default-features = false, optional = true }
 group = { version = "0.13", default-features = false, optional = true }
 hex = { version = "0.4", default-features = false, optional = true }
 rand_core = { version = "0.6", default-features = false, optional = true }
@@ -34,11 +34,10 @@ bytecheck = { version = "0.6", optional = true, default-features = false }
 
 [features]
 default = ["bls-backend-dusk"]
-# The upstream `experimental` feature gates the RFC 9380 hash-to-curve module
-# used by this crate. It is stable cryptographic behavior for dusk-curves, but
-# upstream does not guarantee API compatibility; changed outputs would produce
-# different points for the same input. The RFC vector tests pin that behavior.
-bls-backend-dusk = ["dep:dusk-bls12_381", "dep:sha2", "dusk-bls12_381/groups", "dusk-bls12_381/pairings", "dusk-bls12_381/alloc", "dusk-bls12_381/experimental"]
+# The upstream `hash-to-curve` feature gates the RFC 9380 hash-to-curve module
+# used by this crate. Changed outputs would produce different points for the
+# same input; the RFC vector tests pin that behavior.
+bls-backend-dusk = ["dep:dusk-bls12_381", "dep:sha2", "dusk-bls12_381/groups", "dusk-bls12_381/pairings", "dusk-bls12_381/alloc", "dusk-bls12_381/hash-to-curve"]
 bls-backend-blst = ["dep:blst", "dep:dusk-bls12_381", "dusk-bls12_381/alloc", "dusk-bls12_381/groups", "dep:group", "dep:rand_core", "dep:subtle"]
 # Forward dusk-bls12_381 features where this crate's public surface depends on them.
 default-bls = ["bls-backend-dusk", "dusk-bls12_381/default"]
@@ -51,7 +50,7 @@ zeroize = ["dep:zeroize", "dusk-bls12_381/zeroize"]
 criterion = "0.5"
 # The blst parity tests use dusk-bls12_381 as the reference implementation for
 # the same hash-to-curve behavior, so they need the same upstream feature.
-dusk-bls12_381 = { version = "0.14", default-features = false, features = ["alloc", "groups", "pairings", "experimental"] }
+dusk-bls12_381 = { version = "0.16", default-features = false, features = ["alloc", "groups", "pairings", "hash-to-curve"] }
 serde_json = "1"
 sha2 = { version = "0.9", default-features = false }
 

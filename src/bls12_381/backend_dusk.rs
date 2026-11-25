@@ -11,6 +11,7 @@ use sha2::Sha256;
 // This backend forwards the upstream dusk types directly. The stable
 // backend-portable contract lives in `crate::bls12_381`; any extra inherent
 // methods reachable here should be treated as dusk-specific surface.
+pub use dusk_bls12_381::multiscalar_mul::InsufficientBases;
 pub use dusk_bls12_381::{
     BlsScalar, G1Affine, G1Projective, G2Affine, G2Prepared, G2Projective, GENERATOR, Gt,
     MillerLoopResult, ROOT_OF_UNITY, TWO_ADACITY,
@@ -29,7 +30,7 @@ pub type Scalar = BlsScalar;
 #[must_use]
 #[inline]
 pub fn hash_to_scalar(bytes: &[u8]) -> Scalar {
-    Scalar::hash_to_scalar(bytes)
+    Scalar::hash_to_scalar(None, bytes)
 }
 
 #[must_use]
@@ -54,6 +55,14 @@ pub fn scalar_from_wide(bytes: &[u8; 64]) -> Scalar {
 #[inline]
 pub fn msm_variable_base(points: &[G1Affine], scalars: &[Scalar]) -> G1Projective {
     dusk_bls12_381::multiscalar_mul::msm_variable_base(points, scalars)
+}
+
+#[inline]
+pub fn try_msm_variable_base(
+    points: &[G1Affine],
+    scalars: &[Scalar],
+) -> Result<G1Projective, InsufficientBases> {
+    dusk_bls12_381::multiscalar_mul::try_msm_variable_base(points, scalars)
 }
 
 #[must_use]
@@ -126,6 +135,23 @@ mod tests {
         // Different input gives different output.
         let c = hash_to_scalar(b"other-input");
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn hash_to_scalar_keeps_legacy_blake2b_output() {
+        // Unpersonalized BLAKE2b-512, read little-endian and reduced mod r.
+        for (input, expected) in [
+            (
+                b"" as &[u8],
+                "30c0d8d7b59113e47148ad5d096d043f41b9525b311e8299fef69f6ae2290b3b",
+            ),
+            (
+                b"test-input",
+                "121bf73c4a85925043cd8b00c444b7e62e037823ffe91c05391f7928210a6620",
+            ),
+        ] {
+            assert_eq!(hash_to_scalar(input).to_bytes(), decode_hex(expected));
+        }
     }
 
     #[test]
@@ -205,6 +231,20 @@ mod tests {
         let result = msm_variable_base(&[g], &[two]);
         let expected = G1Projective::from(g) + G1Projective::from(g);
         assert_eq!(G1Affine::from(result), G1Affine::from(expected));
+    }
+
+    #[test]
+    fn msm_rejects_insufficient_bases() {
+        let g = G1Affine::generator();
+        let one = Scalar::one();
+        assert_eq!(
+            try_msm_variable_base(&[g], &[one, one]),
+            Err(InsufficientBases)
+        );
+        assert_eq!(
+            G1Affine::from(try_msm_variable_base(&[g, g], &[one]).unwrap()),
+            g
+        );
     }
 
     #[test]

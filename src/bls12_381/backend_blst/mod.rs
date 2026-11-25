@@ -18,6 +18,7 @@
 // crate.  They have no blst counterpart and downstream code depends on their
 // rich trait surface (ff::Field, Serializable, etc.).
 
+pub use dusk_bls12_381::multiscalar_mul::InsufficientBases;
 pub use dusk_bls12_381::{BlsScalar, GENERATOR, ROOT_OF_UNITY, TWO_ADACITY};
 
 #[cfg(feature = "rkyv-impl")]
@@ -35,8 +36,8 @@ fn write_raw_limbs<'a, I>(out: &mut [u8], limbs: I)
 where
     I: IntoIterator<Item = &'a u64>,
 {
-    for (chunk, limb) in out.chunks_exact_mut(8).zip(limbs) {
-        chunk.copy_from_slice(&limb.to_le_bytes());
+    for (chunk, limb) in out.as_chunks_mut::<8>().0.iter_mut().zip(limbs) {
+        *chunk = limb.to_le_bytes();
     }
 }
 
@@ -44,10 +45,8 @@ fn read_raw_limbs<'a, I>(bytes: &[u8], limbs: I)
 where
     I: IntoIterator<Item = &'a mut u64>,
 {
-    let mut word = [0u8; 8];
-    for (chunk, limb) in bytes.chunks_exact(8).zip(limbs) {
-        word.copy_from_slice(chunk);
-        *limb = u64::from_le_bytes(word);
+    for (chunk, limb) in bytes.as_chunks::<8>().0.iter().zip(limbs) {
+        *limb = u64::from_le_bytes(*chunk);
     }
 }
 
@@ -179,7 +178,7 @@ mod rkyv_tests;
 
 #[cfg(feature = "rkyv-impl")]
 pub use g1::{ArchivedG1Affine, G1AffineResolver, InvalidG1Affine};
-pub use g1::{G1Affine, G1Projective, msm_variable_base};
+pub use g1::{G1Affine, G1Projective, msm_variable_base, try_msm_variable_base};
 #[cfg(feature = "rkyv-impl")]
 pub use g2::{ArchivedG2Affine, G2AffineResolver, InvalidG2Affine};
 pub use g2::{G2Affine, G2Projective};
@@ -201,7 +200,7 @@ pub use pairings::{
 #[inline]
 /// NOTE: internal function comes from the dusk backend, not blst
 pub fn hash_to_scalar(bytes: &[u8]) -> Scalar {
-    Scalar::hash_to_scalar(bytes)
+    Scalar::hash_to_scalar(None, bytes)
 }
 
 /// Hash arbitrary bytes to a G1 point using the supplied domain separation tag.
@@ -437,7 +436,7 @@ mod tests {
         ] {
             assert_eq!(
                 hash_to_scalar(input),
-                dusk_reference::BlsScalar::hash_to_scalar(input)
+                dusk_reference::BlsScalar::hash_to_scalar(None, input)
             );
         }
 
@@ -670,13 +669,134 @@ mod tests {
                 &scalars[..2],
             )),
         );
-        assert_g1_interchanges_with_dusk(
-            G1Affine::from(msm_variable_base(&blst_points[..2], &scalars[..3])),
-            dusk_reference::G1Affine::from(dusk_reference::multiscalar_mul::msm_variable_base(
+        assert_eq!(
+            try_msm_variable_base(&blst_points[..2], &scalars[..3]).map(G1Affine::from),
+            Err(InsufficientBases)
+        );
+        assert_eq!(
+            dusk_reference::multiscalar_mul::try_msm_variable_base(
                 &dusk_points[..2],
                 &scalars[..3],
+            )
+            .map(dusk_reference::G1Affine::from),
+            Err(InsufficientBases)
+        );
+        assert_g1_interchanges_with_dusk(
+            G1Affine::from(try_msm_variable_base(&blst_points[..3], &[]).unwrap()),
+            dusk_reference::G1Affine::from(
+                dusk_reference::multiscalar_mul::try_msm_variable_base(&dusk_points[..3], &[])
+                    .unwrap(),
+            ),
+        );
+
+        let blst_with_identity = [G1Affine::identity(), blst_points[1], blst_points[2]];
+        let dusk_with_identity = [
+            dusk_reference::G1Affine::identity(),
+            dusk_points[1],
+            dusk_points[2],
+        ];
+        let scalars_with_zero = [scalar, BlsScalar::zero(), BlsScalar::from(5u64)];
+        assert_g1_interchanges_with_dusk(
+            G1Affine::from(msm_variable_base(&blst_with_identity, &scalars_with_zero)),
+            dusk_reference::G1Affine::from(dusk_reference::multiscalar_mul::msm_variable_base(
+                &dusk_with_identity,
+                &scalars_with_zero,
             )),
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "fewer points than scalars")]
+    fn msm_panics_on_insufficient_bases() {
+        let points = [G1Affine::generator()];
+        let scalars = [BlsScalar::one(), BlsScalar::one()];
+        let _ = msm_variable_base(&points, &scalars);
+    }
+
+    const FP_MODULUS_BE: [u8; 48] = [
+        0x1a, 0x01, 0x11, 0xea, 0x39, 0x7f, 0xe6, 0x9a, 0x4b, 0x1b, 0xa7, 0xb6, 0x43, 0x4b, 0xac,
+        0xd7, 0x64, 0x77, 0x4b, 0x84, 0xf3, 0x85, 0x12, 0xbf, 0x67, 0x30, 0xd2, 0xa0, 0xf6, 0xb0,
+        0xf6, 0x24, 0x1e, 0xab, 0xff, 0xfe, 0xb1, 0x53, 0xff, 0xff, 0xb9, 0xfe, 0xff, 0xff, 0xff,
+        0xff, 0xaa, 0xab,
+    ];
+
+    /// Adds the field modulus to a big-endian field element in place,
+    /// returning false if the sum does not fit in 48 bytes.
+    fn add_fp_modulus(element: &mut [u8]) -> bool {
+        let mut carry = 0u16;
+        for (byte, modulus_byte) in element.iter_mut().zip(FP_MODULUS_BE).rev() {
+            let sum = u16::from(*byte) + u16::from(modulus_byte) + carry;
+            *byte = sum as u8;
+            carry = sum >> 8;
+        }
+        carry == 0
+    }
+
+    #[test]
+    fn noncanonical_field_encodings_are_rejected_by_both_backends() {
+        let generator = G1Projective::generator();
+        let small_x = (2u64..)
+            .map(|k| G1Affine::from(generator * BlsScalar::from(k)))
+            .find(|point| point.to_compressed()[0] & 0x1f < 0x05)
+            .unwrap();
+        let mut compressed = small_x.to_compressed();
+        compressed[0] &= 0x1f;
+        assert!(add_fp_modulus(&mut compressed));
+        assert_eq!(compressed[0] & 0xe0, 0);
+        compressed[0] |= small_x.to_compressed()[0] & 0xe0;
+        assert!(bool::from(G1Affine::from_compressed(&compressed).is_none()));
+        assert!(bool::from(
+            G1Affine::from_compressed_unchecked(&compressed).is_none()
+        ));
+        assert!(bool::from(
+            dusk_reference::G1Affine::from_compressed(&compressed).is_none()
+        ));
+        assert!(bool::from(
+            dusk_reference::G1Affine::from_compressed_unchecked(&compressed).is_none()
+        ));
+
+        let mut uncompressed = G1Affine::generator().to_uncompressed();
+        assert!(add_fp_modulus(&mut uncompressed[48..]));
+        assert!(bool::from(
+            G1Affine::from_uncompressed(&uncompressed).is_none()
+        ));
+        assert!(bool::from(
+            G1Affine::from_uncompressed_unchecked(&uncompressed).is_none()
+        ));
+        assert!(bool::from(
+            dusk_reference::G1Affine::from_uncompressed(&uncompressed).is_none()
+        ));
+        assert!(bool::from(
+            dusk_reference::G1Affine::from_uncompressed_unchecked(&uncompressed).is_none()
+        ));
+
+        let mut compressed = G2Affine::generator().to_compressed();
+        assert!(add_fp_modulus(&mut compressed[48..]));
+        assert!(bool::from(G2Affine::from_compressed(&compressed).is_none()));
+        assert!(bool::from(
+            G2Affine::from_compressed_unchecked(&compressed).is_none()
+        ));
+        assert!(bool::from(
+            dusk_reference::G2Affine::from_compressed(&compressed).is_none()
+        ));
+        assert!(bool::from(
+            dusk_reference::G2Affine::from_compressed_unchecked(&compressed).is_none()
+        ));
+
+        let mut uncompressed = G2Affine::generator().to_uncompressed();
+        assert!(add_fp_modulus(&mut uncompressed[144..]));
+        assert!(bool::from(
+            G2Affine::from_uncompressed(&uncompressed).is_none()
+        ));
+        assert!(bool::from(
+            G2Affine::from_uncompressed_unchecked(&uncompressed).is_none()
+        ));
+        assert!(bool::from(
+            dusk_reference::G2Affine::from_uncompressed(&uncompressed).is_none()
+        ));
+        assert!(bool::from(
+            dusk_reference::G2Affine::from_uncompressed_unchecked(&uncompressed).is_none()
+        ));
     }
 
     #[test]

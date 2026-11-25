@@ -110,8 +110,8 @@ helpers are covered by compressed-encoding parity checks.
 Regardless of the backend, `dusk_curves::bls12_381` exposes the same public
 surface:
 
-- **Types:** `BlsScalar` (`Scalar`), `G1Affine`, `G1Projective`, `G2Affine`, `G2Projective`, `G2Prepared`, `Gt`
-- **Functions:** `hash_to_scalar`, `hash_to_g1`, `hash_to_g2`, `scalar_from_wide`, `msm_variable_base`, `multi_miller_loop_result`, `pairing_product_is_identity`
+- **Types:** `BlsScalar` (`Scalar`), `G1Affine`, `G1Projective`, `G2Affine`, `G2Projective`, `G2Prepared`, `Gt`, `InsufficientBases`
+- **Functions:** `hash_to_scalar`, `hash_to_g1`, `hash_to_g2`, `scalar_from_wide`, `msm_variable_base`, `try_msm_variable_base`, `multi_miller_loop_result`, `pairing_product_is_identity`
 - **Constants:** `GENERATOR`, `ROOT_OF_UNITY`, `TWO_ADACITY`
 
 `hash_to_g1` and `hash_to_g2` take both the message and the caller-selected
