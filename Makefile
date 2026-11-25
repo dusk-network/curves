@@ -3,6 +3,7 @@ BLST_RKYV            := --no-default-features --features bls-backend-blst,rkyv-i
 BLST_ZEROIZE         := --no-default-features --features bls-backend-blst,zeroize
 BLST_SERDE_ZEROIZE   := --no-default-features --features bls-backend-blst,serde,zeroize
 RKYV                 := --features rkyv-impl
+RKYV_SEMANTIC        := --features rkyv-impl,dusk-bls12_381/rkyv-semantic-validation
 ZEROIZE              := --features zeroize
 PARALLEL             := --features parallel
 
@@ -11,7 +12,7 @@ CLIPPY   := --release -- -D warnings
 .PHONY: all \
         fmt fmt-check \
 	clippy clippy-dusk clippy-dusk-rkyv clippy-dusk-zeroize clippy-dusk-parallel clippy-blst clippy-blst-rkyv \
-        test test-dusk test-dusk-rkyv test-dusk-zeroize \
+        test test-dusk test-dusk-rkyv test-dusk-rkyv-semantic test-dusk-zeroize \
 	test-blst test-blst-rkyv test-blst-zeroize test-blst-serde-zeroize \
 	bench bench-dusk bench-blst \
         doc doc-dusk doc-blst \
@@ -46,13 +47,17 @@ clippy-blst:
 clippy-blst-rkyv:
 	cargo clippy $(BLST_RKYV) $(CLIPPY)
 
-test: test-dusk test-dusk-rkyv test-dusk-zeroize test-blst test-blst-rkyv test-blst-zeroize test-blst-serde-zeroize
+test: test-dusk test-dusk-rkyv test-dusk-rkyv-semantic test-dusk-zeroize test-blst test-blst-rkyv test-blst-zeroize test-blst-serde-zeroize
 
 test-dusk:
 	cargo test
 
 test-dusk-rkyv:
 	cargo test $(RKYV)
+
+# Checks the archive fixtures with the dusk backend's semantic validation.
+test-dusk-rkyv-semantic:
+	cargo test $(RKYV_SEMANTIC) --test fixtures -- --ignored
 
 test-dusk-zeroize:
 	cargo test $(ZEROIZE)

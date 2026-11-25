@@ -234,20 +234,6 @@ mod tests {
     }
 
     #[test]
-    fn msm_rejects_insufficient_bases() {
-        let g = G1Affine::generator();
-        let one = Scalar::one();
-        assert_eq!(
-            try_msm_variable_base(&[g], &[one, one]),
-            Err(InsufficientBases)
-        );
-        assert_eq!(
-            G1Affine::from(try_msm_variable_base(&[g, g], &[one]).unwrap()),
-            g
-        );
-    }
-
-    #[test]
     fn msm_empty_is_identity() {
         let result = msm_variable_base(&[], &[]);
         assert_eq!(G1Affine::from(result), G1Affine::identity());

@@ -65,6 +65,13 @@ format version and backend identifier such as `bls-backend-dusk` or
 `bls-backend-blst`, reject mismatches before deserializing, and reserialize
 under the new backend during migration.
 
+Archive validation differs too. The blst backend archives `G1Affine` and
+`G2Affine` as compressed encodings and validates them like `from_compressed`.
+The dusk backend only checks for canonical field limbs and a 0 or 1 identity
+byte unless `dusk-bls12_381/rkyv-semantic-validation` is enabled, so a
+validated dusk archive can hold a point off the curve or outside the subgroup.
+`tests/fixtures/v1` records both.
+
 `rkyv` validation of `G2Prepared` does not prove subgroup membership. The blst
 backend validates canonical raw affine field limbs, curve membership, and
 non-identity handling for archived `G2Prepared`; it deliberately does not add a
@@ -241,6 +248,7 @@ Targeted checks are also available, including:
 - `make clippy-blst-rkyv`
 - `make test-dusk`
 - `make test-dusk-rkyv`
+- `make test-dusk-rkyv-semantic`
 - `make test-dusk-zeroize`
 - `make test-blst`
 - `make test-blst-rkyv`

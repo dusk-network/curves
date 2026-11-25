@@ -194,6 +194,7 @@ Targeted commands:
 - `make clippy-blst-rkyv`
 - `make test-dusk`
 - `make test-dusk-rkyv`
+- `make test-dusk-rkyv-semantic`
 - `make test-dusk-zeroize`
 - `make test-blst`
 - `make test-blst-rkyv`
