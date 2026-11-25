@@ -666,14 +666,32 @@ mod serde_support {
 
 // ── Pairing functions ────────────────────────────────────────────────────────
 
+/// Splits the terms whose points are both non-identity into blst inputs.
+///
+/// A pairing with the identity in either argument is 1, so dropping such terms
+/// leaves the product unchanged. They must be dropped: blst's `miller_loop_n`
+/// treats the all-zero affine encoding of the identity as an ordinary point.
+fn non_identity_terms<'a>(
+    terms: impl Iterator<Item = (&'a ::blst::blst_p1_affine, &'a ::blst::blst_p2_affine)>,
+) -> (Vec<::blst::blst_p1_affine>, Vec<::blst::blst_p2_affine>) {
+    terms
+        .filter(|(p, q)| {
+            // SAFETY: both pointers come from live references.
+            let identity =
+                unsafe { ::blst::blst_p1_affine_is_inf(*p) || ::blst::blst_p2_affine_is_inf(*q) };
+            !identity
+        })
+        .map(|(p, q)| (*p, *q))
+        .unzip()
+}
+
 /// Multi-Miller loop over pairs of (G1Affine, G2Prepared) points.
 #[must_use]
 pub(crate) fn multi_miller_loop(terms: &[(&G1Affine, &G2Prepared)]) -> MillerLoopResult {
-    if terms.is_empty() {
+    let (ps, qs) = non_identity_terms(terms.iter().map(|(g1, g2)| (&g1.0, &g2.0)));
+    if ps.is_empty() {
         return MillerLoopResult(unsafe { *::blst::blst_fp12_one() });
     }
-    let ps: Vec<::blst::blst_p1_affine> = terms.iter().map(|(g1, _)| g1.0).collect();
-    let qs: Vec<::blst::blst_p2_affine> = terms.iter().map(|(_, g2)| g2.0).collect();
     MillerLoopResult(::blst::blst_fp12::miller_loop_n(
         qs.as_slice(),
         ps.as_slice(),
@@ -690,15 +708,10 @@ pub fn multi_miller_loop_result(terms: &[(&G1Affine, &G2Prepared)]) -> Gt {
 /// is the identity element in GT.
 #[must_use]
 pub fn pairing_product_is_identity(terms: &[(&G1Affine, &G2Affine)]) -> bool {
-    if terms.is_empty() {
+    let (ps, qs) = non_identity_terms(terms.iter().map(|(g1, g2)| (&g1.0, &g2.0)));
+    if ps.is_empty() {
         return true;
     }
-
-    let ps: Vec<::blst::blst_p1_affine> = terms.iter().map(|(g1, _)| g1.0).collect();
-    let qs: Vec<::blst::blst_p2_affine> = terms
-        .iter()
-        .map(|(_, g2)| G2Prepared::from(**g2).0)
-        .collect();
 
     let fp12 = ::blst::blst_fp12::miller_loop_n(qs.as_slice(), ps.as_slice());
     let gt = fp12.final_exp();

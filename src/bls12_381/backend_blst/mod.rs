@@ -721,6 +721,46 @@ mod tests {
             ])
         );
 
+        // A pairing with the identity in either argument is 1, wherever the
+        // term sits in the product.
+        let (blst_o1, blst_o2) = (G1Affine::identity(), G2Affine::identity());
+        let (dusk_o1, dusk_o2) = (
+            dusk_reference::G1Affine::identity(),
+            dusk_reference::G2Affine::identity(),
+        );
+        let blst_cases: [&[(&G1Affine, &G2Affine)]; 5] = [
+            &[(&blst_g1, &blst_o2)],
+            &[(&blst_o1, &blst_o2)],
+            &[(&blst_o1, &blst_g2), (&blst_g1, &blst_o2)],
+            &[
+                (&blst_g1, &blst_o2),
+                (&blst_g1, &blst_g2),
+                (&blst_neg_g1, &blst_g2),
+            ],
+            &[(&blst_g1, &blst_g2), (&blst_g1, &blst_o2)],
+        ];
+        let dusk_cases: [&[(&dusk_reference::G1Affine, &dusk_reference::G2Affine)]; 5] = [
+            &[(&dusk_g1, &dusk_o2)],
+            &[(&dusk_o1, &dusk_o2)],
+            &[(&dusk_o1, &dusk_g2), (&dusk_g1, &dusk_o2)],
+            &[
+                (&dusk_g1, &dusk_o2),
+                (&dusk_g1, &dusk_g2),
+                (&dusk_neg_g1, &dusk_g2),
+            ],
+            &[(&dusk_g1, &dusk_g2), (&dusk_g1, &dusk_o2)],
+        ];
+        for (blst_terms, dusk_terms) in blst_cases.iter().zip(dusk_cases) {
+            let expected = dusk_pairing_product_is_identity(dusk_terms);
+            assert_eq!(pairing_product_is_identity(blst_terms), expected);
+            let prepared: Vec<_> = blst_terms
+                .iter()
+                .map(|(g1, g2)| (*g1, G2Prepared::from(*g2)))
+                .collect();
+            let refs: Vec<_> = prepared.iter().map(|(g1, g2)| (*g1, g2)).collect();
+            assert_eq!(multi_miller_loop_result(&refs) == Gt::identity(), expected);
+        }
+
         let blst_prepared =
             G2Prepared::from(G2Affine::from_compressed(&dusk_g2.to_compressed()).unwrap());
         assert_ne!(

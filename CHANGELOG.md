@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix blst pairings with the identity point, which did not equal 1 [#32]
+
 ## [0.2.1] - 2026-06-01
 
 ### Added
@@ -72,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#11]: https://github.com/dusk-network/curves/issues/11
 [#24]: https://github.com/dusk-network/curves/issues/24
 [#26]: https://github.com/dusk-network/curves/issues/26
+[#32]: https://github.com/dusk-network/curves/issues/32
 
 <!-- PRs -->
 [#1]: https://github.com/dusk-network/curves/pull/1
